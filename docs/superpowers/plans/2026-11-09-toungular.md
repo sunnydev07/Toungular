@@ -6,7 +6,7 @@
 
 **Architecture:** Flutter mobile client communicates with a Toungular-owned TypeScript/Express API. The API uses Prisma with SQLite for local development and PostgreSQL through `DATABASE_URL` for production, and keeps speech/AI, ad, and purchase integrations behind provider interfaces. Ship an APK configured for a caller-supplied API URL; production AI, ad, and billing credentials remain server/account configuration.
 
-**Tech Stack:** Flutter 3.47.5 / Dart 3.13.4; Flutter Riverpod, GoRouter, Dio, `record`, `speech_to_text`, `just_audio`, `flutter_secure_storage`, `in_app_purchase`, and `google_mobile_ads`; Node.js/TypeScript, Express, Zod, Prisma, SQLite (development), PostgreSQL (production).
+**Tech Stack:** Flutter 3.47.5 / Dart 3.13.4; Flutter Riverpod, GoRouter, Dio, `record`, `speech_to_text`, `just_audio`, `flutter_secure_storage`, `flutter_local_notifications`, `in_app_purchase`, and `google_mobile_ads`; Node.js/TypeScript, Express, Zod, Prisma, SQLite (development), PostgreSQL (production).
 
 **Spec:** [2026-11-09-toungular-design.md](../specs/2026-11-09-toungular-design.md)
 
@@ -37,6 +37,7 @@
 - `mobile/android/app/build.gradle.kts`, `mobile/android/app/src/main/AndroidManifest.xml`, `mobile/android/app/src/main/kotlin/com/toungular/app/MainActivity.kt`: package ID, label, platform setup, and required permission declarations.
 - `mobile/lib/main.dart`, `mobile/lib/app/app.dart`, `mobile/lib/app/router.dart`: app startup, provider scope, and routes.
 - `mobile/lib/core/config/app_environment.dart`, `mobile/lib/core/network/api_client.dart`, `mobile/lib/core/storage/session_store.dart`: environment, authenticated API requests, and secure session storage.
+- `mobile/lib/core/sync/offline_action_queue.dart`: queued lesson completion and vocabulary review actions for later sync.
 - `mobile/lib/core/theme/`: Toungular design tokens and reusable widgets.
 - `mobile/lib/features/auth/`: sign-in, registration, profile setup, and onboarding state.
 - `mobile/lib/features/home/`: daily plan, roadmap summary, and navigation entry points.
@@ -55,8 +56,8 @@
 - `backend/prisma/schema.prisma`, `backend/prisma/seed.ts`: user, profile, curriculum, review, speaking, conversation, progress, habit, referral, and entitlement data.
 - `backend/src/app.ts`, `backend/src/server.ts`: Express composition and startup.
 - `backend/src/config/env.ts`, `backend/src/db/prisma.ts`, `backend/src/http/`: validated configuration, persistence, auth middleware, and error handling.
-- `backend/src/modules/auth/`, `profile/`, `curriculum/`, `vocabulary/`, `speaking/`, `coach/`, `ielts/`, `progress/`, `habits/`, `billing/`, `ads/`, `referrals/`: route, schema, and service files for each API boundary.
-- `backend/src/providers/speech/`, `coach/`, `tts/`, `billing/`, `ads/`: provider interfaces, unconfigured implementations, and configured adapters.
+- `backend/src/modules/auth/`, `profile/`, `curriculum/`, `vocabulary/`, `speaking/`, `coach/`, `ielts/`, `progress/`, `habits/`, `billing/`, `referrals/`: route, schema, and service files for each API boundary.
+- `backend/src/providers/speech/`, `coach/`, `tts/`, `billing/`: provider interfaces, unconfigured implementations, and configured adapters.
 - `backend/storage/.gitkeep`: local audio upload directory; production storage comes from provider configuration.
 - `README.md`: run instructions, environment variables, build instructions, provider setup, and feature limitations.
 
@@ -85,6 +86,7 @@
 **Interfaces:**
 
 - `AuthService.register(input: RegisterInput): Promise<AuthResult>` and `AuthService.login(input: LoginInput): Promise<AuthResult>`.
+- `AuthService.refresh(refreshToken: string): Promise<AuthResult>`.
 - `ProfileService.get(userId: string): Promise<Profile>` and `ProfileService.update(userId: string, patch: ProfilePatch): Promise<Profile>`.
 - `CurriculumService.getRoadmap(userId: string): Promise<Roadmap>` and `CurriculumService.completeLesson(userId: string, lessonId: string): Promise<LessonProgress>`.
 - `VocabularyService.getDue(userId: string, now: Date): Promise<VocabularyReview[]>` and `VocabularyService.recordReview(userId: string, itemId: string, grade: ReviewGrade, now: Date): Promise<VocabularyReview>`.
@@ -163,10 +165,11 @@
 
 - `CoachRepository.start(scenarioId)`, `sendTurn(conversationId, turnInput)`, `loadConversation(conversationId)`, and `finish(conversationId)`.
 - `CoachProvider.reply(context: CoachContext, learnerTurn: LearnerTurn): Promise<CoachTurn>`; an unconfigured provider returns a typed unavailable response.
+- Each voice exchange is turn-based: the learner turn includes a transcript (from speech recognition or editing), and `CoachTurn` includes text plus optional generated `audioUrl` for TTS playback; streaming is outside this initial implementation.
 - API routes: `GET /v1/coach/scenarios`, `POST /v1/conversations`, `POST /v1/conversations/:id/turns`, `POST /v1/conversations/:id/finish`, `GET /v1/conversations/:id`.
 
 - [ ] Add original scenario catalog for open conversation, interview, travel, workplace, and IELTS speaking practice.
-- [ ] Build chat/voice-capable conversation UI with visible turn states, transcript, exit/finish, and session summary.
+- [ ] Build turn-based chat/voice conversation UI with visible turn states, transcript, optional TTS playback, exit/finish, and session summary.
 - [ ] Keep live AI/TTS optional via backend provider interfaces; when unconfigured, offer a non-AI prompt practice route rather than fake replies.
 - [ ] Store conversation turns and feedback summary in Toungular’s own backend; allow the learner to delete a conversation.
 
@@ -212,12 +215,12 @@
 **Interfaces:**
 
 - `EntitlementRepository.load()`, `purchase(productId)`, and `restore()`.
-- `AdPlacementPolicy.canShow(placement, appState)` suppresses all ad requests while recording or voice conversation is active.
-- `BillingProvider.verifyPurchase(receipt): Promise<EntitlementResult>` and `AdProvider.load(placement): Future<AdResult>`; provider credentials are environment-owned.
+- `AdPlacementPolicy.canShow(placement: AdPlacement, appState: AppInteractionState): bool` suppresses all ad requests while recording or voice conversation is active. Allowed slots are home banner, lesson native, and optional rewarded lesson unlock.
+- `BillingProvider.verifyPurchase(receipt): Promise<EntitlementResult>` (backend) and `ToungularAdsClient.load(placement, appState): Future<AdResult>` (Flutter); production IDs and credentials are Toungular-account-owned.
 - API routes: `GET /v1/entitlements`, `POST /v1/billing/verify`, `POST /v1/billing/restore`, `GET /v1/referrals/me`, `POST /v1/referrals/redeem`.
 
 - [ ] Implement free-tier paywall UI, subscription entitlements, restore purchases, and backend verification boundary.
-- [ ] Implement ad placements only on approved non-speaking screens; use development test IDs and load production IDs from Toungular-owned configuration.
+- [ ] Implement home banner, lesson native, and optional rewarded-unlock placements only when `AdPlacementPolicy` allows them; use official development test IDs and production IDs only from Toungular-owned configuration.
 - [ ] Ensure premium entitlement suppresses ads and exposes the features defined by Toungular’s own product policy.
 - [ ] Implement referral code display/redeem path and event tracking without Stimuler identifiers.
 - [ ] Document the required Toungular Play Console and ad account setup; keep live monetization disabled until those accounts/products are configured.
