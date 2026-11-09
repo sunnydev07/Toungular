@@ -71,11 +71,11 @@
 
 - Produces: Flutter application ID `com.toungular.app`, app label `Toungular`, API base URL compile-time variable `API_BASE_URL`; server startup entry `backend/src/server.ts` and configuration contract in `backend/.env.example`.
 
-- [ ] Create Flutter app scaffolding and set Android ID/label to `com.toungular.app` / `Toungular`.
-- [ ] Add only dependencies listed in the Tech Stack that are used by the first implementation tasks.
-- [ ] Create TypeScript Express service package with strict TypeScript settings and Prisma SQLite development configuration.
-- [ ] Add `.env.example` with `PORT`, `DATABASE_URL`, `JWT_SECRET`, `MOBILE_ORIGIN`, and optional provider configuration names; put no real secrets in source.
-- [ ] Add README setup commands for Flutter, Android SDK, backend, local API URL, and environment configuration.
+- [x] Create Flutter app scaffolding and set Android ID/label to `com.toungular.app` / `Toungular`.
+- [x] Add only dependencies listed in the Tech Stack that are used by the first implementation tasks.
+- [x] Create TypeScript Express service package with strict TypeScript settings and Prisma SQLite development configuration.
+- [x] Add `.env.example` with `PORT`, `DATABASE_URL`, `JWT_SECRET`, `MOBILE_ORIGIN`, and optional provider configuration names; put no real secrets in source.
+- [x] Add README setup commands for Flutter, Android SDK, backend, local API URL, and environment configuration.
 
 **Deliverable:** Separate Flutter and backend source trees, with no dependency on the Stimuler package at runtime.
 
