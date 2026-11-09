@@ -1,4 +1,4 @@
-// PostgreSQL deployment schema. Keep fields synchronized with schema.prisma;
+// PostgreSQL deployment schema. Keep fields synchronized with ../schema.prisma;
 // only the datasource provider differs so the TypeScript service contracts stay unchanged.
 generator client {
   provider = "prisma-client-js"

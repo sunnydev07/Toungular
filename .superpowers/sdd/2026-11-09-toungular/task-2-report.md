@@ -28,3 +28,9 @@ Not run, by instruction: no automated tests, TypeScript build, Prisma generation
 - Corrected the SQLite initial migration so every relation declared by `schema.prisma` has its corresponding foreign key and every declared secondary index is created.
 - Added concrete PostgreSQL initial migration SQL with matching tables, foreign keys, unique constraints, and indexes. `prisma:migrate:postgres` now applies that provider-specific asset with `prisma db execute`; the README describes the same command.
 - Static review only: no Prisma generation/migration command, build, test, or runtime check was run under the active instruction.
+
+## Fix round 2
+
+- Moved the PostgreSQL Prisma schema to `prisma/postgresql/schema.prisma` and its initial SQL to the standard sibling `prisma/postgresql/migrations/` layout, including a PostgreSQL migration lock file.
+- Restored `prisma:migrate:postgres` to `prisma migrate deploy --schema prisma/postgresql/schema.prisma`; Prisma now records the initial schema in `_prisma_migrations` and repeated deployment checks that history rather than rerunning non-idempotent `CREATE TABLE` statements.
+- Updated PostgreSQL generation and README commands to the same provider-specific layout. No tests, builds, database migrations, generation, or runtime checks were run.
