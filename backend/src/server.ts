@@ -1,8 +1,9 @@
 import { createApp } from './app.js';
+import { loadEnv } from './config/env.js';
 
-const port = Number.parseInt(process.env.PORT ?? '3000', 10);
-const app = createApp();
+const env = loadEnv();
+const app = createApp(env);
 
-app.listen(port, () => {
-  console.info(`Toungular API listening on port ${port}`);
+app.listen(env.port, () => {
+  console.info(`Toungular API listening on port ${env.port}`);
 });
