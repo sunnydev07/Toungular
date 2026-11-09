@@ -66,4 +66,11 @@ export class ProfileService {
     });
     return toProfile(profile);
   }
+
+  public async deleteAccount(userId: string): Promise<void> {
+    await this.database.$transaction(async (transaction) => {
+      await transaction.referral.updateMany({ where: { referredById: userId }, data: { referredById: null } });
+      await transaction.user.delete({ where: { id: userId } });
+    });
+  }
 }

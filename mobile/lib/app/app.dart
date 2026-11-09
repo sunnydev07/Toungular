@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/toungular_theme.dart';
 import 'router.dart';
 
 class ToungularApp extends StatelessWidget {
@@ -9,11 +10,8 @@ class ToungularApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Toungular',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A4D6E),
-        ),
-      ),
+      debugShowCheckedModeBanner: false,
+      theme: ToungularTheme.light,
       routerConfig: appRouter,
     );
   }

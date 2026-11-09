@@ -5,8 +5,14 @@ import { jsonErrorHandler } from './lib/http.js';
 import { prisma } from './lib/prisma.js';
 import { createV1Router } from './routes/v1.js';
 import { AuthService } from './services/auth-service.js';
+import { CoachService } from './services/coach-service.js';
 import { CurriculumService } from './services/curriculum-service.js';
+import { IeltsService } from './services/ielts-service.js';
+import { MonetizationService } from './services/monetization-service.js';
 import { ProfileService } from './services/profile-service.js';
+import { PlacementService } from './services/placement-service.js';
+import { ProgressService } from './services/progress-service.js';
+import { SpeakingService } from './services/speaking-service.js';
 import { VocabularyService } from './services/vocabulary-service.js';
 
 function corsForMobile(origin: string): RequestHandler {
@@ -16,7 +22,7 @@ function corsForMobile(origin: string): RequestHandler {
       response.header('Access-Control-Allow-Origin', origin);
       response.header('Vary', 'Origin');
       response.header('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-      response.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+      response.header('Access-Control-Allow-Methods', 'DELETE, GET, POST, PUT, PATCH, OPTIONS');
       if (request.method === 'OPTIONS') {
         response.sendStatus(204);
         return;
@@ -41,8 +47,14 @@ export function createApp(env: AppEnv = loadEnv()): Express {
   app.use('/v1', createV1Router({
     env,
     auth: new AuthService(prisma, env),
+    coach: new CoachService(prisma),
     profiles,
+    placement: new PlacementService(prisma),
+    progress: new ProgressService(prisma),
     curriculum: new CurriculumService(prisma),
+    ielts: new IeltsService(prisma),
+    monetization: new MonetizationService(prisma),
+    speaking: new SpeakingService(prisma),
     vocabulary: new VocabularyService(prisma),
   }));
   app.use((_request, response) => {
