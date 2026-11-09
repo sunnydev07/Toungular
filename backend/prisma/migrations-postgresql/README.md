@@ -1,3 +1,3 @@
 # PostgreSQL migration history
 
-Prisma does not apply SQLite migrations to PostgreSQL. Create and retain this separate history from `schema.postgresql.prisma` using Toungular's PostgreSQL database and `prisma migrate dev`; deploy it with `npm run prisma:migrate:postgres`.
+Prisma does not apply SQLite migrations to PostgreSQL. The initial PostgreSQL SQL is kept beside this README and applied by `npm run prisma:migrate:postgres`; it uses the same tables, foreign keys, unique constraints, and indexes as `schema.postgresql.prisma`.

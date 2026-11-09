@@ -6,7 +6,7 @@ The API serves original English-learning data only. It has no configured speech,
 
 Copy `.env.example` to `.env`, then run `npm run prisma:generate`, `npm run prisma:migrate:dev`, `npm run seed`, and `npm run dev`. The default `DATABASE_URL` is SQLite at `backend/storage/toungular.db`. `PORT`, `DATABASE_URL`, `JWT_SECRET` (at least 32 characters), and `MOBILE_ORIGIN` are validated at startup.
 
-For PostgreSQL, use a `postgresql://` `DATABASE_URL`, generate with `npm run prisma:generate:postgres`, and deploy the PostgreSQL migration history with `npm run prisma:migrate:postgres`. Prisma migration histories are provider-specific; application services and route contracts do not change.
+For PostgreSQL, use a `postgresql://` `DATABASE_URL`, generate with `npm run prisma:generate:postgres`, and apply the PostgreSQL migration SQL with `npm run prisma:migrate:postgres`. Prisma migration histories are provider-specific; application services and route contracts do not change.
 
 ## JSON envelope and errors
 
