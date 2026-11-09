@@ -6,7 +6,7 @@
 
 **Architecture:** Flutter mobile client communicates with a Toungular-owned TypeScript/Express API. The API uses Prisma with SQLite for local development and PostgreSQL through `DATABASE_URL` for production, and keeps speech/AI, ad, and purchase integrations behind provider interfaces. Ship an APK configured for a caller-supplied API URL; production AI, ad, and billing credentials remain server/account configuration.
 
-**Tech Stack:** Flutter 3.47.5 / Dart 3.13.4; Flutter Riverpod, GoRouter, Dio, `record`, `speech_to_text`, `just_audio`, `flutter_secure_storage`, `flutter_local_notifications`, `in_app_purchase`, and `google_mobile_ads`; Node.js/TypeScript, Express, Zod, Prisma, SQLite (development), PostgreSQL (production).
+**Tech Stack:** Flutter 3.47.5 / Dart 3.13.4; Flutter Riverpod, GoRouter, Dio, `record`, `speech_to_text`, `just_audio`, `flutter_secure_storage`, `shared_preferences`, `flutter_local_notifications`, `in_app_purchase`, and `google_mobile_ads`; Node.js/TypeScript, Express, Zod, Prisma, SQLite (development), PostgreSQL (production).
 
 **Spec:** [2026-11-09-toungular-design.md](../specs/2026-11-09-toungular-design.md)
 
