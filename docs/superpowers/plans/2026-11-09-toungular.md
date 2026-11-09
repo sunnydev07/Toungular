@@ -92,12 +92,12 @@
 - `VocabularyService.getDue(userId: string, now: Date): Promise<VocabularyReview[]>` and `VocabularyService.recordReview(userId: string, itemId: string, grade: ReviewGrade, now: Date): Promise<VocabularyReview>`.
 - API routes: `/v1/auth/register`, `/v1/auth/login`, `/v1/auth/refresh`, `/v1/me`, `/v1/roadmap`, `/v1/courses`, `/v1/lessons/:lessonId`, `/v1/lessons/:lessonId/complete`, `/v1/vocabulary/due`, `/v1/vocabulary/:itemId/review`.
 
-- [ ] Define Prisma records for users, profiles, courses, lessons, lesson progress, vocabulary items, review schedule, speaking sessions, conversations, IELTS attempts, skill snapshots, streak state, referrals, and purchase entitlements.
-- [ ] Implement validated env loading, Prisma connection, JSON error responses, JWT bearer middleware, password hashing, and refresh-token rotation.
-- [ ] Implement registration/login/profile routes and persisted profile goals, proficiency, daily minutes, timezone, and IELTS intent.
-- [ ] Seed original English curriculum and vocabulary/review entries; do not reuse target copy or bundled sample payloads.
-- [ ] Implement roadmap, lesson detail/completion, due vocabulary, and review scheduling with a simple interval-based spaced repetition policy.
-- [ ] Configure local SQLite as default; accept PostgreSQL through `DATABASE_URL` without changing service-layer contracts.
+- [x] Define Prisma records for users, profiles, courses, lessons, lesson progress, vocabulary items, review schedule, speaking sessions, conversations, IELTS attempts, skill snapshots, streak state, referrals, and purchase entitlements.
+- [x] Implement validated env loading, Prisma connection, JSON error responses, JWT bearer middleware, password hashing, and refresh-token rotation.
+- [x] Implement registration/login/profile routes and persisted profile goals, proficiency, daily minutes, timezone, and IELTS intent.
+- [x] Seed original English curriculum and vocabulary/review entries; do not reuse target copy or bundled sample payloads.
+- [x] Implement roadmap, lesson detail/completion, due vocabulary, and review scheduling with a simple interval-based spaced repetition policy.
+- [x] Configure local SQLite as default; accept PostgreSQL through `DATABASE_URL` without changing service-layer contracts.
 
 **Deliverable:** Locally runnable API with persistent user/profile/course/progress data and documented JSON contracts.
 
