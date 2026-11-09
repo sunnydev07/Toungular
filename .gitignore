@@ -1,0 +1,14 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+mobile/build/
+mobile/.dart_tool/
+backend/node_modules/
+backend/dist/
+backend/.env
+backend/prisma/*.db
+backend/storage/*
+!backend/storage/.gitkeep
+.superpowers/
+.worktrees/
