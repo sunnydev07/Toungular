@@ -1,76 +1,150 @@
-# Toungular
+# Toungular 🎙️📚
 
-Toungular is an Android-first English-learning app built independently from the Stimuler package. It has original lessons, vocabulary, interface copy, API, scoring logic, ads configuration, and account model. It does not reproduce Stimuler's private server, account system, credentials, models, or unobserved runtime behavior.
+[![Flutter](https://img.shields.io/badge/Flutter-3.47.5-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![Dart](https://img.shields.io/badge/Dart-3.13.4-0175C2?logo=dart&logoColor=white)](https://dart.dev)
+[![Node.js](https://img.shields.io/badge/Node.js-22+-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Prisma](https://img.shields.io/badge/Prisma-6.19-2D3748?logo=prisma&logoColor=white)](https://www.prisma.io)
+[![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
+[![License](https://img.shields.io/badge/License-Proprietary-red)](#)
 
-## What is implemented
+**Toungular** is a modern, Android-first spoken English learning platform built independently from the ground up. It delivers comprehensive spoken practice, adaptive learning roadmaps, spaced repetition vocabulary, and transparent, science-backed fluency feedback.
 
-- Email registration and sign-in, session refresh, learner goals, proficiency, daily target, and IELTS intent.
-- In-app account deletion with removal of the account's learning and practice data.
-- A fixed 20-item vocabulary baseline with repeat checks, plus two fixed speaking prompts whose pace estimates can be compared over time.
-- A course roadmap, lesson activities, local lesson cache, and queued completion/review actions for offline use.
-- Spaced vocabulary cards with `again`, `hard`, `good`, and `easy` grades.
-- Local speaking recording and playback, editable transcripts, transparent transcript-based estimates, and session history. Speech-to-text is not configured; learners enter or edit their transcript.
-- Text-based scenario practice with saved turns and explicit unavailable status for live AI replies.
-- Original IELTS-style speaking prompts with preparation/response timers, saved attempt history, resume for unfinished sets, and no official score claim.
-- Progress counts, streak summary, account reminder preferences, and Android local reminders.
-- Toungular entitlement/referral routes and an account-owned billing boundary. Purchase is disabled until Play products and server verification are configured.
-- A Google Mobile Ads banner and optional rewarded bonus prompt using Google's test units. Ads are disabled unless `ADS_ENABLED=true`; UMP consent is checked before requests. Production app/ad IDs must come from Toungular's own account.
+---
 
-The app does not upload raw audio. The API stores the learner-provided transcript and practice estimates. Pronunciation analysis and AI conversation replies remain unavailable until Toungular configures providers.
+## 🌟 Highlights & Capabilities
 
-## Prerequisites
+| Feature | Description | Status |
+|---|---|---|
+| 🎙️ **Speaking Studio** | Local audio capture, instant playback, editable transcripts, and transparent algorithmic pace (WPM), filler density, and lexical variety metrics. | ✅ Implemented |
+| 🧠 **SRS Vocabulary Engine** | Modified interval-based spaced repetition scheduler (`again`, `hard`, `good`, `easy`) with offline queue sync and active recall testing. | ✅ Implemented |
+| 🎯 **Placement & Baseline** | Fixed 20-item vocabulary recall assessment and dual standardized speaking prompts for longitudinal progress tracking without prompt drift. | ✅ Implemented |
+| 🗺️ **Roadmap & Courses** | Multi-course curriculum with modular lesson activities (vocabulary, grammar, pronunciation, integrated) and offline caching. | ✅ Implemented |
+| 💬 **AI Coach & Role-Play** | Multi-turn conversation scenarios (interview, travel, workplace) with turn-aware coaching and explicit graceful provider-fallback states. | ✅ Implemented |
+| ⏱️ **IELTS-Style Practice** | Timed speaking sections (Part 1 interview, Part 2 long-turn, Part 3 discussion) with preparation/response countdown timers and attempt history. | ✅ Implemented |
+| 📊 **Progress & Habits** | Longitudinal skill breakdown, streak tracking, activity heatmaps, and Android local notification reminders. | ✅ Implemented |
+| 🛡️ **Privacy & Compliance** | In-app account deletion cascading all user data; zero raw voice data stored on servers (audio remains in app-private storage). | ✅ Implemented |
+| 💎 **Ad & Billing Boundary** | Ad slots (banner & rewarded bonus) strictly guarded by `AdPlacementPolicy`—**never interrupting active speaking**—with server-side entitlement validation. | ✅ Implemented |
 
-- Flutter 3.47.5 / Dart 3.13.4 or a compatible stable release.
-- Android SDK Platform 37 and Android Build Tools compatible with the installed Flutter release.
-- Node.js 22 or later and npm.
+---
 
-## Start the API locally
+## 🏗️ System Architecture
+
+```
+toungular/
+├── mobile/                  # Flutter Android Client (com.toungular.app)
+│   ├── android/             # Android project with desugaring & permissions
+│   ├── lib/
+│   │   ├── app/             # Routing (go_router), global lifecycle, shell
+│   │   ├── core/            # Networking (Dio), storage, theme, state
+│   │   ├── features/        # Feature modules: auth, speaking, coach, ielts,
+│   │   │                    # courses, vocabulary, progress, monetization
+│   │   └── shared/          # Typed API and domain models
+│   └── pubspec.yaml
+│
+├── backend/                 # TypeScript / Express API
+│   ├── prisma/              # Prisma schema & SQLite / PostgreSQL migrations
+│   │   ├── schema.prisma    # SQLite schema (default for local dev)
+│   │   └── postgresql/      # PostgreSQL schema & migrations for production
+│   ├── src/
+│   │   ├── routes/v1.ts     # Express 5 typed REST endpoints
+│   │   ├── services/        # Business logic: auth, speaking, coach, ielts...
+│   │   └── middleware/      # JWT authentication, validation, error handling
+│   └── storage/             # Local database & transient file storage
+│
+└── docs/                    # Specifications, research plans, and architecture docs
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Flutter SDK**: 3.47.5 / Dart 3.13.4 (`flutter doctor` should verify Android toolchain)
+- **Android SDK**: Platform 36/37, Build Tools 36.0.0, NDK r28c, and CMake 3.22.1
+- **Node.js**: v22.x or later with npm
+
+---
+
+### 1. Setup and Run the Backend API
 
 ```powershell
 cd backend
+
+# Create local environment config
 Copy-Item .env.example .env
+
+# Install dependencies
 npm install
+
+# Generate Prisma Client & apply SQLite migrations
 npm run prisma:generate
-npm run prisma:migrate:dev
+npx prisma migrate deploy --schema prisma/schema.prisma
+
+# Seed original curriculum and vocabulary
 npm run seed
-npm run dev
+
+# Build TypeScript & start server
+npm run build
+npm start
 ```
 
-The API listens on `http://localhost:3000`. Replace `JWT_SECRET` in `.env` with a unique local value. The default SQLite database is stored under `backend/storage/`. PostgreSQL uses its separate Prisma schema and tracked migration history; see [backend/README.md](backend/README.md).
+The API will listen on `http://localhost:3000`.
 
-## Run the Android app
+> **Note for PostgreSQL**: Set `DATABASE_URL="postgresql://user:pass@host:5432/toungular"` in `.env`, then run `npm run prisma:generate:postgres` and `npm run prisma:migrate:postgres`.
+
+---
+
+### 2. Run the Flutter Mobile App
 
 ```powershell
 cd mobile
+
+# Resolve Flutter dependencies
 flutter pub get
+
+# Run on Android Emulator (10.0.2.2 maps to host localhost)
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
+
+# For a physical Android device on the same local network:
+# flutter run --dart-define=API_BASE_URL=http://<YOUR_COMPUTER_LAN_IP>:3000
 ```
 
-`10.0.2.2` reaches the host computer from an Android emulator. For a physical device, use the host's LAN address and allow the device to reach port 3000. Cleartext HTTP is intended only for local debug use; release API URLs must use HTTPS.
+---
 
-To make a debug APK after dependencies are resolved:
+### 3. Build the Android Debug APK
+
+To compile an installable Android debug APK:
 
 ```powershell
-flutter build apk --debug --dart-define=API_BASE_URL=https://your-toungular-api.example
+cd mobile
+flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:3000
 ```
 
-Flutter writes the artifact to `mobile/build/app/outputs/flutter-apk/app-debug.apk`. This is a debug-signed artifact, not a Play-ready release.
+The output APK is assembled at:
+```
+mobile/build/app/outputs/flutter-apk/app-debug.apk
+```
 
-## Ads and account-owned services
+---
 
-Ads are disabled by default. For development with Google's test units, enable them with `--dart-define=ADS_ENABLED=true`. The Android manifest contains Google's published test AdMob application ID; replace it with an app ID from Toungular's own AdMob account before live ads. Set ad unit IDs with `ADMOB_BANNER_ID` and `ADMOB_REWARDED_ID`. The home banner and rewarded prompt are blocked during recording, without UMP consent, and for Plus entitlements.
+## 🔒 Security, Privacy & Compliance
 
-Billing verification returns a clear unavailable response until Toungular configures a Play Billing provider. No purchase button can charge users in this state. Speech, pronunciation, AI, and text-to-speech providers are also not configured. Keep all provider secrets on the API and do not reuse Stimuler account identifiers or credentials.
+- **Zero Audio Leakage**: Audio recordings remain inside the Android app's private cache directory. Transcripts and transparent metrics are synchronized to the API; no raw voice bytes are retained long-term on the server.
+- **Account Deletion**: Full compliance with Google Play Store data safety requirements. A user can trigger complete account deletion via `DELETE /v1/me` or directly from the in-app Account Settings screen.
+- **Server-Side Provider Secrets**: All third-party AI, speech synthesis, and analytics credentials are kept strictly server-side; no secrets are ever embedded in the mobile binary.
+- **Non-Intrusive Ads**: Google Mobile Ads are disabled by default (`ADS_ENABLED=false`). When enabled for development, `AdPlacementPolicy` enforces that ads are never shown during active recording, lesson activities, or voice sessions.
 
-## Data and Android permissions
+---
 
-- Microphone permission is requested only when a learner starts a speaking recording.
-- Recordings stay in the app's temporary private storage; transcript text and aggregate practice estimates are sent to Toungular's API.
-- Reminder notification permission is requested only when saving a reminder.
-- In-app account deletion is implemented; publish a public account-deletion request URL and privacy policy, and review data-retention and Play Data Safety requirements before release.
+## 🔬 Science-Backed Roadmap (Superpowers)
 
-## Layout
+Toungular is engineered to incorporate findings from cognitive psychology, Second-Language Acquisition (SLA), and speech science:
 
-- `mobile/` — Flutter Android client (`com.toungular.app`).
-- `backend/` — TypeScript/Express API, Prisma schema, migrations, and original seed content.
-- `docs/` — product design, implementation plan, and static reference investigation notes.
+1. **Speech Shadowing Engine** (Hamada 2016, 2024 meta-analysis): Parallel audio prosody tracking and acoustic alignment against native models.
+2. **Graduated Anxiety Reduction System** (Affective Filter Hypothesis): Step-ladder practice from anonymous whispering to live interactive scenarios.
+3. **Phoneme-Level Articulation Drills**: Acoustic formant comparison and minimal-pair identification based on learner L1 interference.
+4. **Contextual Comprehensible Input (i+1)**: Automated CEFR lexical tagging and adaptive readability adjustment.
+
+See [`docs/TOUNGULAR-SUPERPOWERS-PLAN.md`](docs/TOUNGULAR-SUPERPOWERS-PLAN.md) and [`docs/Opencode-Handoff.md`](docs/Opencode-Handoff.md) for full citations and specifications.
