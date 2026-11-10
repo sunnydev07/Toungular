@@ -101,10 +101,10 @@ class CurriculumRepository {
     try {
       entries = jsonDecode(encoded) as List<dynamic>;
     } on FormatException {
-      await preferences.remove(_queueKey);
+      await preferences.remove(queueKey);
       return;
     } on TypeError {
-      await preferences.remove(_queueKey);
+      await preferences.remove(queueKey);
       return;
     }
     final pending = <Map<String, Object?>>[];

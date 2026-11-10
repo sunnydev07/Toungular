@@ -7,7 +7,7 @@ const fillerWords = new Set(['um', 'uh', 'erm', 'like', 'basically', 'actually']
 export class SpeakingService {
   public constructor(private readonly database: PrismaClient) {}
 
-  public async start(userId: string, input: { type: 'prompt' | 'ielts'; prompt: string }) {
+  public async start(userId: string, input: { type: 'prompt' | 'ielts' | 'baseline'; prompt: string }) {
     return this.database.speakingSession.create({
       data: { userId, type: input.type, prompt: input.prompt },
       select: { id: true, type: true, status: true, prompt: true, startedAt: true },

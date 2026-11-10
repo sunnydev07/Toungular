@@ -111,11 +111,11 @@
 - `AuthRepository.register(...)`, `AuthRepository.login(...)`, and `AuthRepository.logout()` own authentication persistence.
 - `RoadmapRepository.load()` returns the signed-in learner’s `Roadmap`.
 
-- [ ] Implement Toungular visual tokens, app routing, loading/error/empty states, and session restoration.
-- [ ] Implement sign-in and account creation UI connected to Task 2 routes.
-- [ ] Implement onboarding for proficiency, goals, daily minutes, optional IELTS intent, and microphone permission explanation; request microphone permission only when the learner starts speaking.
-- [ ] Implement home view with daily path, skill overview, streak state, and links to courses, speaking, coach, IELTS, and progress.
-- [ ] Implement login expiry and backend-unavailable screens without discarding a valid local session or cached read-only learning content.
+- [x] Implement Toungular visual tokens, app routing, loading/error/empty states, and session restoration.
+- [x] Implement sign-in and account creation UI connected to Task 2 routes.
+- [x] Implement onboarding for proficiency, goals, daily minutes, optional IELTS intent, and microphone permission explanation; request microphone permission only when the learner starts speaking.
+- [x] Implement home view with daily path, skill overview, streak state, and links to courses, speaking, coach, IELTS, and progress.
+- [x] Implement login expiry and backend-unavailable screens without discarding a valid local session or cached read-only learning content.
 
 **Deliverable:** A user can create/sign into a Toungular account, set goals, and reach a personalized daily learning hub.
 
@@ -129,11 +129,11 @@
 - `VocabularyRepository.loadDueItems()` and `submitReview(itemId, grade)`.
 - Lesson types: `vocabulary`, `grammar`, `pronunciation`, `integrated`; review grade: `again`, `hard`, `good`, `easy`.
 
-- [ ] Build course/roadmap, lesson details, lesson activity, and completion screens with original Toungular copy.
-- [ ] Implement vocabulary cards, example usage, recall response, review grading, and due queue.
-- [ ] Implement grammar and pronunciation lesson activities using the same lesson progression contract.
-- [ ] Persist completions and review schedule through the API; make offline read-only content usable and queue review/completion actions for later sync.
-- [ ] Connect daily plan recommendations to due vocabulary and incomplete lessons.
+- [x] Build course/roadmap, lesson details, lesson activity, and completion screens with original Toungular copy.
+- [x] Implement vocabulary cards, example usage, recall response, review grading, and due queue.
+- [x] Implement grammar and pronunciation lesson activities using the same lesson progression contract.
+- [x] Persist completions and review schedule through the API; make offline read-only content usable and queue review/completion actions for later sync.
+- [x] Connect daily plan recommendations to due vocabulary and incomplete lessons.
 
 **Deliverable:** A learner can follow and complete English lessons and review vocabulary on a spaced schedule.
 
@@ -148,12 +148,12 @@
 - `FeedbackProvider.analyze(input: FeedbackInput): Promise<FeedbackResult>`; unconfigured pronunciation analysis returns an explicit `unavailable` field, never a fabricated score.
 - API routes: `POST /v1/speaking-sessions`, `POST /v1/speaking-sessions/:id/audio`, `PUT /v1/speaking-sessions/:id/transcript`, `POST /v1/speaking-sessions/:id/analyze`, `GET /v1/speaking-sessions/:id`, `GET /v1/speaking-sessions`.
 
-- [ ] Implement prompt selection, permission request, recording controls, playback, cancellation, and recoverable upload state.
-- [ ] Support system speech recognition where available and editable transcripts; clearly show when transcription is unavailable.
-- [ ] Calculate transparent baseline feedback from transcript/duration for pace, filler density, and vocabulary variety; mark these as practice estimates.
-- [ ] Implement provider interface for advanced speech/pronunciation feedback; keep API keys on backend and show `not configured` state until Toungular supplies a provider.
-- [ ] Show transcript, audio playback, available feedback dimensions, follow-up lesson, and session history.
-- [ ] Save the prompt/transcript/session draft before upload so interruptions or network loss do not erase the attempt.
+- [x] Implement prompt selection, permission request, recording controls, playback, cancellation, and recoverable upload state.
+- [x] Support system speech recognition where available and editable transcripts; clearly show when transcription is unavailable.
+- [x] Calculate transparent baseline feedback from transcript/duration for pace, filler density, and vocabulary variety; mark these as practice estimates.
+- [x] Implement provider interface for advanced speech/pronunciation feedback; keep API keys on backend and show `not configured` state until Toungular supplies a provider.
+- [x] Show transcript, audio playback, available feedback dimensions, follow-up lesson, and session history.
+- [x] Save the prompt/transcript/session draft before upload so interruptions or network loss do not erase the attempt.
 
 **Deliverable:** Prompt-based speaking sessions work with recording, transcript editing, history, and clearly labeled available/unavailable feedback.
 
@@ -168,10 +168,10 @@
 - Each voice exchange is turn-based: the learner turn includes a transcript (from speech recognition or editing), and `CoachTurn` includes text plus optional generated `audioUrl` for TTS playback; streaming is outside this initial implementation.
 - API routes: `GET /v1/coach/scenarios`, `POST /v1/conversations`, `POST /v1/conversations/:id/turns`, `POST /v1/conversations/:id/finish`, `GET /v1/conversations/:id`.
 
-- [ ] Add original scenario catalog for open conversation, interview, travel, workplace, and IELTS speaking practice.
-- [ ] Build turn-based chat/voice conversation UI with visible turn states, transcript, optional TTS playback, exit/finish, and session summary.
-- [ ] Keep live AI/TTS optional via backend provider interfaces; when unconfigured, offer a non-AI prompt practice route rather than fake replies.
-- [ ] Store conversation turns and feedback summary in Toungular’s own backend; allow the learner to delete a conversation.
+- [x] Add original scenario catalog for open conversation, interview, travel, workplace, and IELTS speaking practice.
+- [x] Build turn-based chat/voice conversation UI with visible turn states, transcript, optional TTS playback, exit/finish, and session summary.
+- [x] Keep live AI/TTS optional via backend provider interfaces; when unconfigured, offer a non-AI prompt practice route rather than fake replies.
+- [x] Store conversation turns and feedback summary in Toungular’s own backend; allow the learner to delete a conversation.
 
 **Deliverable:** Scenario-based practice and conversation history are available, with explicit graceful behavior when live AI/TTS is not configured.
 
@@ -184,10 +184,10 @@
 - `IeltsRepository.loadMocks()`, `startAttempt(mockId)`, `submitResponse(attemptId, sectionId, response)`, and `finishAttempt(attemptId)`.
 - API routes: `GET /v1/ielts/mocks`, `POST /v1/ielts/attempts`, `POST /v1/ielts/attempts/:id/responses`, `POST /v1/ielts/attempts/:id/finish`.
 
-- [ ] Create original timed speaking sections covering interview-style answers, a long-turn prompt, and follow-up discussion.
-- [ ] Implement preparation timer, response timer, save/resume, and completion flow using the speaking capture contract.
-- [ ] Show practice feedback and dimensions available from configured providers; label results as unofficial practice feedback.
-- [ ] Save attempt history and link weaknesses to lessons and vocabulary reviews.
+- [x] Create original timed speaking sections covering interview-style answers, a long-turn prompt, and follow-up discussion.
+- [x] Implement preparation timer, response timer, save/resume, and completion flow using the speaking capture contract.
+- [x] Show practice feedback and dimensions available from configured providers; label results as unofficial practice feedback.
+- [x] Save attempt history and link weaknesses to lessons and vocabulary reviews.
 
 **Deliverable:** Learners can complete and review original timed IELTS-style speaking mocks.
 
@@ -201,10 +201,10 @@
 - `HabitRepository.loadStreak()`, `updateReminder(schedule)`, and `claimStreakRepair()` (the last only when the configured entitlement permits it).
 - API routes: `GET /v1/progress`, `GET /v1/streak`, `PUT /v1/reminders`, `POST /v1/streak/repair`.
 
-- [ ] Build progress overview with separate fluency, vocabulary, pronunciation, grammar, and consistency trends.
-- [ ] Build session/course history, weekly summary, streak state, and optional reminder scheduling.
-- [ ] Make aggregate scores traceable to underlying sessions and label estimated/provider-unavailable dimensions.
-- [ ] Implement achievement/referral/buddy-streak entry points using Toungular-owned rules and data.
+- [x] Build progress overview with separate fluency, vocabulary, pronunciation, grammar, and consistency trends.
+- [x] Build session/course history, weekly summary, streak state, and optional reminder scheduling.
+- [x] Make aggregate scores traceable to underlying sessions and label estimated/provider-unavailable dimensions.
+- [x] Implement achievement/referral/buddy-streak entry points using Toungular-owned rules and data.
 
 **Deliverable:** Learners can see longitudinal progress and use streak/reminder features without overstating score precision.
 
@@ -219,11 +219,11 @@
 - `BillingProvider.verifyPurchase(receipt): Promise<EntitlementResult>` (backend) and `ToungularAdsClient.load(placement, appState): Future<AdResult>` (Flutter); production IDs and credentials are Toungular-account-owned.
 - API routes: `GET /v1/entitlements`, `POST /v1/billing/verify`, `POST /v1/billing/restore`, `GET /v1/referrals/me`, `POST /v1/referrals/redeem`.
 
-- [ ] Implement free-tier paywall UI, subscription entitlements, restore purchases, and backend verification boundary.
-- [ ] Implement home banner, lesson native, and optional rewarded-unlock placements only when `AdPlacementPolicy` allows them; use official development test IDs and production IDs only from Toungular-owned configuration.
-- [ ] Ensure premium entitlement suppresses ads and exposes the features defined by Toungular’s own product policy.
-- [ ] Implement referral code display/redeem path and event tracking without Stimuler identifiers.
-- [ ] Document the required Toungular Play Console and ad account setup; keep live monetization disabled until those accounts/products are configured.
+- [x] Implement free-tier paywall UI, subscription entitlements, restore purchases, and backend verification boundary.
+- [x] Implement home banner, lesson native, and optional rewarded-unlock placements only when `AdPlacementPolicy` allows them; use official development test IDs and production IDs only from Toungular-owned configuration.
+- [x] Ensure premium entitlement suppresses ads and exposes the features defined by Toungular’s own product policy.
+- [x] Implement referral code display/redeem path and event tracking without Stimuler identifiers.
+- [x] Document the required Toungular Play Console and ad account setup; keep live monetization disabled until those accounts/products are configured.
 
 **Deliverable:** Monetization paths are implemented and safe by default; production purchases and ads activate only with Toungular-owned account configuration.
 
@@ -236,11 +236,11 @@
 - Debug build accepts `--dart-define=API_BASE_URL=<Toungular API URL>`.
 - Release build requires a non-placeholder HTTPS API URL and Toungular signing configuration supplied outside source control.
 
-- [ ] Connect every feature route to the backend modules defined in earlier tasks and provide consistent loading/error/empty states.
-- [ ] Add Toungular app icon/name and ensure generated package metadata contains no Stimuler branding or identifiers.
-- [ ] Document local backend startup, supported provider environment variables, data/audio storage, and production account dependencies.
-- [ ] Produce a debug APK at `mobile/build/app/outputs/flutter-apk/app-debug.apk` using the configured API URL; do not represent this as a production-signed or live-provider-ready release.
-- [ ] Leave production signing, provider credentials, and deployment to Toungular-owned accounts/configuration.
+- [x] Connect every feature route to the backend modules defined in earlier tasks and provide consistent loading/error/empty states.
+- [x] Add Toungular app icon/name and ensure generated package metadata contains no Stimuler branding or identifiers.
+- [x] Document local backend startup, supported provider environment variables, data/audio storage, and production account dependencies.
+- [x] Produce a debug APK at `mobile/build/app/outputs/flutter-apk/app-debug.apk` using the configured API URL; do not represent this as a production-signed or live-provider-ready release.
+- [x] Leave production signing, provider credentials, and deployment to Toungular-owned accounts/configuration.
 
 **Deliverable:** Toungular source, backend source, setup documentation, and a buildable Android debug APK.
 

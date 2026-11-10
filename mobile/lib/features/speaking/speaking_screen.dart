@@ -220,7 +220,7 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
             const SizedBox(height: ToungularSpace.l),
             if (!isFixedPrompt && !_sessionStarted)
               DropdownButtonFormField<int>(
-                value: _promptIndex,
+                initialValue: _promptIndex,
                 decoration: const InputDecoration(labelText: 'Choose a prompt'),
                 items: List<DropdownMenuItem<int>>.generate(
                   _prompts.length,

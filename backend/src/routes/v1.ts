@@ -67,6 +67,11 @@ type V1Dependencies = {
   vocabulary: VocabularyService;
 };
 
+function paramString(param: string | string[] | undefined): string {
+  if (Array.isArray(param)) return param[0] ?? '';
+  return param ?? '';
+}
+
 export function createV1Router(dependencies: V1Dependencies): Router {
   const router = Router();
   const authenticate = requireAuth(dependencies.env);
@@ -105,10 +110,10 @@ export function createV1Router(dependencies: V1Dependencies): Router {
     response.status(200).json({ data: roadmap.courses });
   }));
   router.get('/lessons/:lessonId', authenticate, asyncRoute(async (request, response) => {
-    response.status(200).json({ data: await dependencies.curriculum.getLesson(authenticatedUserId(request), request.params.lessonId) });
+    response.status(200).json({ data: await dependencies.curriculum.getLesson(authenticatedUserId(request), paramString(request.params.lessonId)) });
   }));
   router.post('/lessons/:lessonId/complete', authenticate, asyncRoute(async (request, response) => {
-    response.status(200).json({ data: await dependencies.curriculum.completeLesson(authenticatedUserId(request), request.params.lessonId) });
+    response.status(200).json({ data: await dependencies.curriculum.completeLesson(authenticatedUserId(request), paramString(request.params.lessonId)) });
   }));
 
   router.get('/vocabulary/due', authenticate, asyncRoute(async (request, response) => {
@@ -119,7 +124,7 @@ export function createV1Router(dependencies: V1Dependencies): Router {
     response.status(200).json({
       data: await dependencies.vocabulary.recordReview(
         authenticatedUserId(request),
-        request.params.itemId,
+        paramString(request.params.itemId),
         grade as ReviewGrade,
         new Date(),
       ),
@@ -132,11 +137,11 @@ export function createV1Router(dependencies: V1Dependencies): Router {
   }));
   router.put('/speaking-sessions/:id/transcript', authenticate, asyncRoute(async (request, response) => {
     const input = transcriptSchema.parse(request.body);
-    response.status(200).json({ data: await dependencies.speaking.saveTranscript(authenticatedUserId(request), request.params.id, input.transcript) });
+    response.status(200).json({ data: await dependencies.speaking.saveTranscript(authenticatedUserId(request), paramString(request.params.id), input.transcript) });
   }));
   router.post('/speaking-sessions/:id/analyze', authenticate, asyncRoute(async (request, response) => {
     const input = analyzeSchema.parse(request.body);
-    response.status(200).json({ data: await dependencies.speaking.analyze(authenticatedUserId(request), request.params.id, input.durationSeconds) });
+    response.status(200).json({ data: await dependencies.speaking.analyze(authenticatedUserId(request), paramString(request.params.id), input.durationSeconds) });
   }));
   router.get('/speaking-sessions', authenticate, asyncRoute(async (request, response) => {
     response.status(200).json({ data: await dependencies.speaking.history(authenticatedUserId(request)) });
@@ -151,16 +156,16 @@ export function createV1Router(dependencies: V1Dependencies): Router {
   }));
   router.post('/conversations/:id/turns', authenticate, asyncRoute(async (request, response) => {
     const input = turnSchema.parse(request.body);
-    response.status(201).json({ data: await dependencies.coach.addTurn(authenticatedUserId(request), request.params.id, input.transcript) });
+    response.status(201).json({ data: await dependencies.coach.addTurn(authenticatedUserId(request), paramString(request.params.id), input.transcript) });
   }));
   router.post('/conversations/:id/finish', authenticate, asyncRoute(async (request, response) => {
-    response.status(200).json({ data: await dependencies.coach.finish(authenticatedUserId(request), request.params.id) });
+    response.status(200).json({ data: await dependencies.coach.finish(authenticatedUserId(request), paramString(request.params.id)) });
   }));
   router.get('/conversations/:id', authenticate, asyncRoute(async (request, response) => {
-    response.status(200).json({ data: await dependencies.coach.load(authenticatedUserId(request), request.params.id) });
+    response.status(200).json({ data: await dependencies.coach.load(authenticatedUserId(request), paramString(request.params.id)) });
   }));
   router.delete('/conversations/:id', authenticate, asyncRoute(async (request, response) => {
-    await dependencies.coach.remove(authenticatedUserId(request), request.params.id);
+    await dependencies.coach.remove(authenticatedUserId(request), paramString(request.params.id));
     response.status(204).end();
   }));
 
@@ -176,10 +181,10 @@ export function createV1Router(dependencies: V1Dependencies): Router {
   }));
   router.post('/ielts/attempts/:id/responses', authenticate, asyncRoute(async (request, response) => {
     const input = ieltsResponseSchema.parse(request.body);
-    response.status(201).json({ data: await dependencies.ielts.submitResponse(authenticatedUserId(request), request.params.id, input.sectionId, input.transcript) });
+    response.status(201).json({ data: await dependencies.ielts.submitResponse(authenticatedUserId(request), paramString(request.params.id), input.sectionId, input.transcript) });
   }));
   router.post('/ielts/attempts/:id/finish', authenticate, asyncRoute(async (request, response) => {
-    response.status(200).json({ data: await dependencies.ielts.finishAttempt(authenticatedUserId(request), request.params.id) });
+    response.status(200).json({ data: await dependencies.ielts.finishAttempt(authenticatedUserId(request), paramString(request.params.id)) });
   }));
 
   router.get('/progress', authenticate, asyncRoute(async (request, response) => {

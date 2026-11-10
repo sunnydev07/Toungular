@@ -116,7 +116,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   Text('Where are you today?', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: ToungularSpace.s),
                   DropdownButtonFormField<Proficiency>(
-                    value: _proficiency,
+                    initialValue: _proficiency,
                     decoration: const InputDecoration(labelText: 'English level'),
                     items: Proficiency.values
                         .map((level) => DropdownMenuItem<Proficiency>(
