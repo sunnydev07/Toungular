@@ -12,6 +12,25 @@
 
 ---
 
+## 🎨 Design Preview
+
+The proposed direction for the daily loop: four destinations, one primary action per screen, and a speaking flow that ends in a retry instead of a dead end.
+
+<table>
+  <tr>
+    <td align="center"><a href="docs/screenshots/today.jpg"><img src="docs/screenshots/today.jpg" width="300" alt="Today screen with a daily session card, weekly goal and practice tiles"></a><br><sub><b>Today</b> · one session, one next action</sub></td>
+    <td align="center"><a href="docs/screenshots/practice.jpg"><img src="docs/screenshots/practice.jpg" width="300" alt="Practice screen with a daily speaking prompt and four practice modes"></a><br><sub><b>Practice</b> · a prompt and four ways in</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="docs/screenshots/speaking-recording.jpg"><img src="docs/screenshots/speaking-recording.jpg" width="300" alt="Speaking screen recording with a level meter, timer and transcript"></a><br><sub><b>Speaking</b> · record, transcript, mid-answer cue</sub></td>
+    <td align="center"><a href="docs/screenshots/speaking-feedback.jpg"><img src="docs/screenshots/speaking-feedback.jpg" width="300" alt="Speaking feedback with pace, fillers, pauses and a retry action"></a><br><sub><b>Feedback</b> · one strength, one next step, retry</sub></td>
+  </tr>
+</table>
+
+> High-fidelity design mockups for the planned P0 UI pass — not screenshots of the shipped app yet.
+
+---
+
 ## 🌟 Highlights & Capabilities
 
 | Feature | Description | Status |
