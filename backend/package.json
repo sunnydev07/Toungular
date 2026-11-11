@@ -1,8 +1,15 @@
 {
-  "name": "toungular-api",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@sunnydev07/toungular-api",
+  "version": "1.0.0",
+  "description": "Toungular backend API with Jev decision models, Gemini 3.5, and SLA pedagogical engines",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sunnydev07/Toungular.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "dev": "tsx --env-file=.env src/server.ts",
