@@ -30,23 +30,22 @@ class PronunciationRepository {
   }
 
   Future<MinimalPairSet> loadPair(String id) => _api.get<MinimalPairSet>(
-        '/v1/pronunciation/pairs/$id',
-        MinimalPairSet.fromJson,
-      );
+    '/v1/pronunciation/pairs/$id',
+    MinimalPairSet.fromJson,
+  );
 
   Future<PhonemeAnalysisResult> analyzeAttempt({
     required String pairId,
     required String targetChoice,
     required String transcript,
     double durationSeconds = 3.0,
-  }) =>
-      _api.post<PhonemeAnalysisResult>(
-        '/v1/pronunciation/pairs/$pairId/analyze',
-        <String, Object?>{
-          'targetChoice': targetChoice,
-          'transcript': transcript,
-          'durationSeconds': durationSeconds,
-        },
-        PhonemeAnalysisResult.fromJson,
-      );
+  }) => _api.post<PhonemeAnalysisResult>(
+    '/v1/pronunciation/pairs/$pairId/analyze',
+    <String, Object?>{
+      'targetChoice': targetChoice,
+      'transcript': transcript,
+      'durationSeconds': durationSeconds,
+    },
+    PhonemeAnalysisResult.fromJson,
+  );
 }

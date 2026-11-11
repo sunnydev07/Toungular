@@ -19,10 +19,12 @@ class CoachConversationScreen extends ConsumerStatefulWidget {
   final String conversationId;
 
   @override
-  ConsumerState<CoachConversationScreen> createState() => _CoachConversationScreenState();
+  ConsumerState<CoachConversationScreen> createState() =>
+      _CoachConversationScreenState();
 }
 
-class _CoachConversationScreenState extends ConsumerState<CoachConversationScreen> {
+class _CoachConversationScreenState
+    extends ConsumerState<CoachConversationScreen> {
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
   final _player = AudioPlayer();
@@ -45,7 +47,9 @@ class _CoachConversationScreenState extends ConsumerState<CoachConversationScree
   @override
   void initState() {
     super.initState();
-    _conversation = ref.read(coachRepositoryProvider).load(widget.conversationId);
+    _conversation = ref
+        .read(coachRepositoryProvider)
+        .load(widget.conversationId);
   }
 
   @override
@@ -85,11 +89,16 @@ class _CoachConversationScreenState extends ConsumerState<CoachConversationScree
           _error = null;
         });
       }
-      final path = await ref.read(voiceRepositoryProvider).synthesizeToFile(turn.text);
+      final path = await ref
+          .read(voiceRepositoryProvider)
+          .synthesizeToFile(turn.text);
       await _player.setFilePath(path);
       await _player.play();
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not generate speech audio for this turn.');
+      if (mounted)
+        setState(
+          () => _error = 'Could not generate speech audio for this turn.',
+        );
     } finally {
       if (mounted) setState(() => _playingTurnId = null);
     }
@@ -108,12 +117,17 @@ class _CoachConversationScreenState extends ConsumerState<CoachConversationScree
 
       if (path != null) {
         try {
-          final text = await ref.read(voiceRepositoryProvider).transcribe(File(path));
+          final text = await ref
+              .read(voiceRepositoryProvider)
+              .transcribe(File(path));
           if (mounted && text.isNotEmpty) {
             _textController.text = text;
           }
         } catch (_) {
-          if (mounted) setState(() => _error = 'Audio transcription failed. You can type your response instead.');
+          if (mounted)
+            setState(
+              () => _error = 'Audio transcription failed. You can type your response instead.',
+            );
         } finally {
           if (mounted) setState(() => _transcribing = false);
         }
@@ -123,11 +137,17 @@ class _CoachConversationScreenState extends ConsumerState<CoachConversationScree
     } else {
       final hasPermission = await _recorder.hasPermission();
       if (!hasPermission) {
-        setState(() => _error = 'Microphone permission is required to record audio.');
+        setState(
+          () => _error = 'Microphone permission is required to record audio.',
+        );
         return;
       }
-      final path = '${Directory.systemTemp.path}${Platform.pathSeparator}toungular-coach-${DateTime.now().millisecondsSinceEpoch}.m4a';
-      await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+      final path =
+          '${Directory.systemTemp.path}${Platform.pathSeparator}toungular-coach-${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await _recorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: path,
+      );
       ref.read(voiceActivityProvider.notifier).setActive(true);
       setState(() {
         _recording = true;
@@ -135,7 +155,8 @@ class _CoachConversationScreenState extends ConsumerState<CoachConversationScree
         _error = null;
       });
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (mounted) setState(() => _recordDuration += const Duration(seconds: 1));
+        if (mounted)
+          setState(() => _recordDuration += const Duration(seconds: 1));
       });
     }
   }
@@ -148,7 +169,9 @@ class _CoachConversationScreenState extends ConsumerState<CoachConversationScree
       _error = null;
     });
     try {
-      final receipt = await ref.read(coachRepositoryProvider).sendTurn(widget.conversationId, text);
+      final receipt = await ref
+          .read(coachRepositoryProvider)
+          .sendTurn(widget.conversationId, text);
       if (!mounted) return;
       setState(() {
         _newTurns.add(receipt.turn);
@@ -165,7 +188,8 @@ class _CoachConversationScreenState extends ConsumerState<CoachConversationScree
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Your response was not saved. Try again.');
+      if (mounted)
+        setState(() => _error = 'Your response was not saved. Try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -177,7 +201,9 @@ class _CoachConversationScreenState extends ConsumerState<CoachConversationScree
       _error = null;
     });
     try {
-      final summary = await ref.read(coachRepositoryProvider).finish(widget.conversationId);
+      final summary = await ref
+          .read(coachRepositoryProvider)
+          .finish(widget.conversationId);
       if (mounted) {
         setState(() => _summary = summary);
         _scrollToBottom();
@@ -185,7 +211,8 @@ class _CoachConversationScreenState extends ConsumerState<CoachConversationScree
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'This practice session could not be finished.');
+      if (mounted)
+        setState(() => _error = 'This practice session could not be finished.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -196,17 +223,25 @@ class _CoachConversationScreenState extends ConsumerState<CoachConversationScree
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete this practice?'),
-        content: const Text('The saved responses in this conversation will be deleted.'),
+        content: const Text(
+          'The saved responses in this conversation will be deleted.',
+        ),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep it')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep it'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
     if (confirmed != true) return;
     try {
       await ref.read(coachRepositoryProvider).delete(widget.conversationId);
-      if (mounted) context.go('/coach');
+      if (mounted) context.pop();
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     }
@@ -214,242 +249,304 @@ class _CoachConversationScreenState extends ConsumerState<CoachConversationScree
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Practice conversation'),
-          actions: <Widget>[
-            IconButton(
-              tooltip: 'Delete conversation',
-              onPressed: _busy || _recording ? null : _delete,
-              icon: const Icon(Icons.delete_outline),
-            ),
-          ],
+    appBar: AppBar(
+      title: const Text('Practice conversation'),
+      actions: <Widget>[
+        IconButton(
+          tooltip: 'Delete conversation',
+          onPressed: _busy || _recording ? null : _delete,
+          icon: const Icon(Icons.delete_outline),
         ),
-        body: FutureBuilder<CoachConversation>(
-          future: _conversation,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              final error = snapshot.error;
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(ToungularSpace.l),
-                  child: Text(error is ApiException ? error.message : 'This conversation could not load.'),
-                ),
-              );
-            }
-            final conversation = snapshot.data!;
-            final turns = <CoachTurn>[...conversation.turns, ..._newTurns];
-            final complete = conversation.status != 'active' || _summary != null;
+      ],
+    ),
+    body: FutureBuilder<CoachConversation>(
+      future: _conversation,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          final error = snapshot.error;
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(ToungularSpace.l),
+              child: Text(
+                error is ApiException
+                    ? error.message
+                    : 'This conversation could not load.',
+              ),
+            ),
+          );
+        }
+        final conversation = snapshot.data!;
+        final turns = <CoachTurn>[...conversation.turns, ..._newTurns];
+        final complete = conversation.status != 'active' || _summary != null;
 
-            return Column(
-              children: <Widget>[
-                Expanded(
-                  child: ListView(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(ToungularSpace.l),
-                    children: <Widget>[
-                      Text(conversation.scenario.title, style: Theme.of(context).textTheme.headlineSmall),
-                      const SizedBox(height: ToungularSpace.s),
-                      Card(
-                        color: ToungularColor.mist,
-                        child: Padding(
-                          padding: const EdgeInsets.all(ToungularSpace.m),
-                          child: Row(
-                            children: <Widget>[
-                              const Icon(Icons.flag_outlined, color: ToungularColor.leaf),
-                              const SizedBox(width: ToungularSpace.s),
-                              Expanded(child: Text(conversation.scenario.opening)),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: ToungularSpace.m),
-                      for (final turn in turns) ...<Widget>[
-                        _TurnBubble(
-                          turn: turn,
-                          isPlaying: _playingTurnId == turn.id,
-                          onToggleTts: () => _toggleTts(turn),
-                        ),
-                        const SizedBox(height: ToungularSpace.s),
-                      ],
-                      if (_lastRecast != null) ...<Widget>[
-                        Card(
-                          color: const Color(0xFFF1F8E9),
-                          child: Padding(
-                            padding: const EdgeInsets.all(ToungularSpace.m),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                const Icon(Icons.lightbulb_outline, color: Color(0xFF558B2F)),
-                                const SizedBox(width: ToungularSpace.s),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      const Text(
-                                        'Natural phrasing tip',
-                                        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2E7D32)),
-                                      ),
-                                      const SizedBox(height: ToungularSpace.xs),
-                                      Text(_lastRecast!, style: const TextStyle(color: Color(0xFF1B5E20))),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: ToungularSpace.s),
-                      ],
-                      if (_cue != null) ...<Widget>[
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(ToungularSpace.m),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text('Practice cue', style: Theme.of(context).textTheme.titleMedium),
-                                const SizedBox(height: ToungularSpace.xs),
-                                Text(_cue!),
-                                const SizedBox(height: ToungularSpace.xs),
-                                const Text(
-                                  'Try incorporating this prompt into your next reply.',
-                                  style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: ToungularSpace.s),
-                      ],
-                      if (_summary != null) ...<Widget>[
-                        Card(
-                          color: ToungularColor.lime.withValues(alpha: 0.3),
-                          child: Padding(
-                            padding: const EdgeInsets.all(ToungularSpace.l),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Row(
-                                  children: <Widget>[
-                                    const Icon(Icons.check_circle, color: ToungularColor.leaf),
-                                    const SizedBox(width: ToungularSpace.s),
-                                    Text('Practice summary', style: Theme.of(context).textTheme.titleLarge),
-                                  ],
-                                ),
-                                const SizedBox(height: ToungularSpace.s),
-                                Text(_summary!),
-                                const SizedBox(height: ToungularSpace.m),
-                                FilledButton(
-                                  onPressed: () => context.go('/coach'),
-                                  child: const Text('Back to scenarios'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (_error != null) ...<Widget>[
-                        const SizedBox(height: ToungularSpace.s),
-                        Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                      ],
-                    ],
+        return Column(
+          children: <Widget>[
+            Expanded(
+              child: ListView(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(ToungularSpace.l),
+                children: <Widget>[
+                  Text(
+                    conversation.scenario.title,
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
-                ),
-                if (!complete)
-                  SafeArea(
-                    top: false,
+                  const SizedBox(height: ToungularSpace.s),
+                  Card(
+                    color: ToungularColor.mist,
                     child: Padding(
                       padding: const EdgeInsets.all(ToungularSpace.m),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                      child: Row(
                         children: <Widget>[
-                          if (_recording)
-                            Container(
-                              margin: const EdgeInsets.only(bottom: ToungularSpace.s),
-                              padding: const EdgeInsets.symmetric(horizontal: ToungularSpace.m, vertical: ToungularSpace.s),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.red.shade200),
-                              ),
-                              child: Row(
-                                children: <Widget>[
-                                  const Icon(Icons.fiber_manual_record, color: Colors.red, size: 16),
-                                  const SizedBox(width: ToungularSpace.s),
-                                  Text(
-                                    'Listening… ${_recordDuration.inSeconds}s (Tap mic to stop)',
-                                    style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          if (_transcribing)
-                            const Padding(
-                              padding: EdgeInsets.only(bottom: ToungularSpace.s),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: <Widget>[
-                                  SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-                                  SizedBox(width: ToungularSpace.s),
-                                  Text('Transcribing speech…'),
-                                ],
-                              ),
-                            ),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: <Widget>[
-                              Expanded(
-                                child: TextField(
-                                  controller: _textController,
-                                  minLines: 1,
-                                  maxLines: 4,
-                                  textCapitalization: TextCapitalization.sentences,
-                                  decoration: InputDecoration(
-                                    hintText: _recording ? 'Recording…' : 'Write or speak your reply…',
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: ToungularSpace.s),
-                              IconButton.filled(
-                                onPressed: _busy || _transcribing ? null : _toggleRecording,
-                                icon: Icon(_recording ? Icons.stop : Icons.mic),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: _recording ? Colors.red : ToungularColor.leaf,
-                                  foregroundColor: Colors.white,
-                                ),
-                              ),
-                            ],
+                          const Icon(
+                            Icons.flag_outlined,
+                            color: ToungularColor.leaf,
                           ),
-                          const SizedBox(height: ToungularSpace.s),
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: _busy || _recording ? null : _finish,
-                                  child: const Text('Finish'),
-                                ),
-                              ),
-                              const SizedBox(width: ToungularSpace.s),
-                              Expanded(
-                                child: FilledButton(
-                                  onPressed: _busy || _recording ? null : _send,
-                                  child: Text(_busy ? 'Replying…' : 'Send reply'),
-                                ),
-                              ),
-                            ],
-                          ),
+                          const SizedBox(width: ToungularSpace.s),
+                          Expanded(child: Text(conversation.scenario.opening)),
                         ],
                       ),
                     ),
                   ),
-              ],
-            );
-          },
-        ),
-      );
+                  const SizedBox(height: ToungularSpace.m),
+                  for (final turn in turns) ...<Widget>[
+                    _TurnBubble(
+                      turn: turn,
+                      isPlaying: _playingTurnId == turn.id,
+                      onToggleTts: () => _toggleTts(turn),
+                    ),
+                    const SizedBox(height: ToungularSpace.s),
+                  ],
+                  if (_lastRecast != null) ...<Widget>[
+                    Card(
+                      color: const Color(0xFFF1F8E9),
+                      child: Padding(
+                        padding: const EdgeInsets.all(ToungularSpace.m),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const Icon(
+                              Icons.lightbulb_outline,
+                              color: Color(0xFF558B2F),
+                            ),
+                            const SizedBox(width: ToungularSpace.s),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  const Text(
+                                    'Natural phrasing tip',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF2E7D32),
+                                    ),
+                                  ),
+                                  const SizedBox(height: ToungularSpace.xs),
+                                  Text(
+                                    _lastRecast!,
+                                    style: const TextStyle(
+                                      color: Color(0xFF1B5E20),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: ToungularSpace.s),
+                  ],
+                  if (_cue != null) ...<Widget>[
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(ToungularSpace.m),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              'Practice cue',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: ToungularSpace.xs),
+                            Text(_cue!),
+                            const SizedBox(height: ToungularSpace.xs),
+                            const Text(
+                              'Try incorporating this prompt into your next reply.',
+                              style: TextStyle(
+                                fontStyle: FontStyle.italic,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: ToungularSpace.s),
+                  ],
+                  if (_summary != null) ...<Widget>[
+                    Card(
+                      color: ToungularColor.lime.withValues(alpha: 0.3),
+                      child: Padding(
+                        padding: const EdgeInsets.all(ToungularSpace.l),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Row(
+                              children: <Widget>[
+                                const Icon(
+                                  Icons.check_circle,
+                                  color: ToungularColor.leaf,
+                                ),
+                                const SizedBox(width: ToungularSpace.s),
+                                Text(
+                                  'Practice summary',
+                                  style: Theme.of(context).textTheme.titleLarge,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: ToungularSpace.s),
+                            Text(_summary!),
+                            const SizedBox(height: ToungularSpace.m),
+                            FilledButton(
+                              onPressed: () => context.pop(),
+                              child: const Text('Back to scenarios'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (_error != null) ...<Widget>[
+                    const SizedBox(height: ToungularSpace.s),
+                    Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (!complete)
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(ToungularSpace.m),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      if (_recording)
+                        Container(
+                          margin: const EdgeInsets.only(
+                            bottom: ToungularSpace.s,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: ToungularSpace.m,
+                            vertical: ToungularSpace.s,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              const Icon(
+                                Icons.fiber_manual_record,
+                                color: Colors.red,
+                                size: 16,
+                              ),
+                              const SizedBox(width: ToungularSpace.s),
+                              Text(
+                                'Listening… ${_recordDuration.inSeconds}s (Tap mic to stop)',
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (_transcribing)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: ToungularSpace.s),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: <Widget>[
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              SizedBox(width: ToungularSpace.s),
+                              Text('Transcribing speech…'),
+                            ],
+                          ),
+                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: <Widget>[
+                          Expanded(
+                            child: TextField(
+                              controller: _textController,
+                              minLines: 1,
+                              maxLines: 4,
+                              textCapitalization: TextCapitalization.sentences,
+                              decoration: InputDecoration(
+                                hintText: _recording
+                                    ? 'Recording…'
+                                    : 'Write or speak your reply…',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: ToungularSpace.s),
+                          IconButton.filled(
+                            onPressed: _busy || _transcribing
+                                ? null
+                                : _toggleRecording,
+                            icon: Icon(_recording ? Icons.stop : Icons.mic),
+                            style: IconButton.styleFrom(
+                              backgroundColor: _recording
+                                  ? Colors.red
+                                  : ToungularColor.leaf,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: ToungularSpace.s),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _busy || _recording ? null : _finish,
+                              child: const Text('Finish'),
+                            ),
+                          ),
+                          const SizedBox(width: ToungularSpace.s),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: _busy || _recording ? null : _send,
+                              child: Text(_busy ? 'Replying…' : 'Send reply'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    ),
+  );
 }
 
 class _TurnBubble extends StatelessWidget {
@@ -489,24 +586,36 @@ class _TurnBubble extends StatelessWidget {
                     Text(
                       'AI Coach',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: ToungularColor.leaf,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        color: ToungularColor.leaf,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: ToungularSpace.xs),
-                    Text(turn.text, style: Theme.of(context).textTheme.bodyMedium),
+                    Text(
+                      turn.text,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                     const SizedBox(height: ToungularSpace.xs),
                     Align(
                       alignment: Alignment.bottomRight,
                       child: TextButton.icon(
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         onPressed: onToggleTts,
-                        icon: Icon(isPlaying ? Icons.stop_circle : Icons.volume_up, size: 16),
-                        label: Text(isPlaying ? 'Playing' : 'Listen', style: const TextStyle(fontSize: 12)),
+                        icon: Icon(
+                          isPlaying ? Icons.stop_circle : Icons.volume_up,
+                          size: 16,
+                        ),
+                        label: Text(
+                          isPlaying ? 'Playing' : 'Listen',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ),
                     ),
                   ],

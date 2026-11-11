@@ -18,7 +18,7 @@ class SessionState {
   const SessionState.loading() : this._(status: SessionStatus.loading);
   const SessionState.signedOut() : this._(status: SessionStatus.signedOut);
   const SessionState.signedIn(LearnerSession value)
-      : this._(status: SessionStatus.signedIn, session: value);
+    : this._(status: SessionStatus.signedIn, session: value);
 
   final SessionStatus status;
   final LearnerSession? session;
@@ -32,7 +32,9 @@ class SessionState {
 class SessionController extends Notifier<SessionState> {
   @override
   SessionState build() {
-    scheduleMicrotask(() { _restore(); });
+    scheduleMicrotask(() {
+      _restore();
+    });
     return const SessionState.loading();
   }
 
@@ -51,8 +53,9 @@ class SessionController extends Notifier<SessionState> {
     }
 
     try {
-      final refreshed =
-          await ref.read(authRepositoryProvider).refresh(saved.refreshToken);
+      final refreshed = await ref
+          .read(authRepositoryProvider)
+          .refresh(saved.refreshToken);
       state = SessionState.signedIn(refreshed);
     } on ApiException catch (error) {
       if (error.isUnauthorized) {

@@ -14,7 +14,10 @@ class VoiceStatus {
   final bool ttsAvailable;
   final bool sttAvailable;
 
-  static const VoiceStatus unavailable = VoiceStatus(ttsAvailable: false, sttAvailable: false);
+  static const VoiceStatus unavailable = VoiceStatus(
+    ttsAvailable: false,
+    sttAvailable: false,
+  );
 }
 
 class VoiceRepository {
@@ -22,20 +25,31 @@ class VoiceRepository {
 
   final ApiClient _api;
 
-  Future<VoiceStatus> status() => _api.get<VoiceStatus>(
-        '/v1/voice/providers',
-        (json) {
-          final map = json is Map ? json.cast<String, Object?>() : const <String, Object?>{};
-          final tts = map['tts'] is Map ? (map['tts']! as Map).cast<String, Object?>() : const <String, Object?>{};
-          final stt = map['stt'] is Map ? (map['stt']! as Map).cast<String, Object?>() : const <String, Object?>{};
-          return VoiceStatus(ttsAvailable: tts['available'] == true, sttAvailable: stt['available'] == true);
-        },
-      );
+  Future<VoiceStatus> status() =>
+      _api.get<VoiceStatus>('/v1/voice/providers', (json) {
+        final map = json is Map
+            ? json.cast<String, Object?>()
+            : const <String, Object?>{};
+        final tts = map['tts'] is Map
+            ? (map['tts']! as Map).cast<String, Object?>()
+            : const <String, Object?>{};
+        final stt = map['stt'] is Map
+            ? (map['stt']! as Map).cast<String, Object?>()
+            : const <String, Object?>{};
+        return VoiceStatus(
+          ttsAvailable: tts['available'] == true,
+          sttAvailable: stt['available'] == true,
+        );
+      });
 
   Future<String> synthesizeToFile(String text) async {
-    final file = File('${Directory.systemTemp.path}${Platform.pathSeparator}toungular-voice-${text.hashCode}.mp3');
+    final file = File(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}toungular-voice-${text.hashCode}.mp3',
+    );
     if (await file.exists() && await file.length() > 0) return file.path;
-    final bytes = await _api.postBytes('/v1/voice/tts', <String, Object?>{'text': text});
+    final bytes = await _api.postBytes('/v1/voice/tts', <String, Object?>{
+      'text': text,
+    });
     await file.writeAsBytes(bytes, flush: true);
     return file.path;
   }
@@ -46,7 +60,9 @@ class VoiceRepository {
       '/v1/voice/stt?contentType=${Uri.encodeQueryComponent(contentType)}',
       await file.readAsBytes(),
       contentType,
-      (json) => json is Map ? json.cast<String, Object?>() : const <String, Object?>{},
+      (json) => json is Map
+          ? json.cast<String, Object?>()
+          : const <String, Object?>{},
     );
     return result['text'] as String? ?? '';
   }

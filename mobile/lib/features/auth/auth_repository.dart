@@ -20,20 +20,18 @@ class AuthRepository {
   Future<LearnerSession> register({
     required String email,
     required String password,
-  }) =>
-      _authenticate(
-        '/v1/auth/register',
-        <String, Object?>{'email': email.trim(), 'password': password},
-      );
+  }) => _authenticate('/v1/auth/register', <String, Object?>{
+    'email': email.trim(),
+    'password': password,
+  });
 
   Future<LearnerSession> login({
     required String email,
     required String password,
-  }) =>
-      _authenticate(
-        '/v1/auth/login',
-        <String, Object?>{'email': email.trim(), 'password': password},
-      );
+  }) => _authenticate('/v1/auth/login', <String, Object?>{
+    'email': email.trim(),
+    'password': password,
+  });
 
   Future<LearnerSession> refresh(String refreshToken) async {
     final session = await _api.post<LearnerSession>(

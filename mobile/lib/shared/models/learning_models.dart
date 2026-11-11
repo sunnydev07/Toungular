@@ -8,17 +8,17 @@ enum Proficiency {
   advanced;
 
   String get label => switch (this) {
-        Proficiency.beginner => 'Beginner',
-        Proficiency.elementary => 'Elementary',
-        Proficiency.intermediate => 'Intermediate',
-        Proficiency.upperIntermediate => 'Upper intermediate',
-        Proficiency.advanced => 'Advanced',
-      };
+    Proficiency.beginner => 'Beginner',
+    Proficiency.elementary => 'Elementary',
+    Proficiency.intermediate => 'Intermediate',
+    Proficiency.upperIntermediate => 'Upper intermediate',
+    Proficiency.advanced => 'Advanced',
+  };
 
   static Proficiency fromValue(Object? value) => Proficiency.values.firstWhere(
-        (level) => level.name == value,
-        orElse: () => Proficiency.beginner,
-      );
+    (level) => level.name == value,
+    orElse: () => Proficiency.beginner,
+  );
 }
 
 class LearnerProfile {
@@ -58,14 +58,14 @@ class LearnerProfile {
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'userId': userId,
-        'email': email,
-        'goals': goals,
-        'proficiency': proficiency.name,
-        'dailyMinutes': dailyMinutes,
-        'timezone': timezone,
-        'ieltsIntent': ieltsIntent,
-      };
+    'userId': userId,
+    'email': email,
+    'goals': goals,
+    'proficiency': proficiency.name,
+    'dailyMinutes': dailyMinutes,
+    'timezone': timezone,
+    'ieltsIntent': ieltsIntent,
+  };
 }
 
 class LearnerSession {
@@ -84,12 +84,12 @@ class LearnerSession {
   final LearnerProfile profile;
 
   LearnerSession withProfile(LearnerProfile value) => LearnerSession(
-        userId: userId,
-        email: email,
-        accessToken: accessToken,
-        refreshToken: refreshToken,
-        profile: value,
-      );
+    userId: userId,
+    email: email,
+    accessToken: accessToken,
+    refreshToken: refreshToken,
+    profile: value,
+  );
 
   factory LearnerSession.fromAuthData(Object? json) {
     final map = _asMap(json);
@@ -115,12 +115,12 @@ class LearnerSession {
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'userId': userId,
-        'email': email,
-        'accessToken': accessToken,
-        'refreshToken': refreshToken,
-        'profile': profile.toJson(),
-      };
+    'userId': userId,
+    'email': email,
+    'accessToken': accessToken,
+    'refreshToken': refreshToken,
+    'profile': profile.toJson(),
+  };
 }
 
 class RoadmapLesson {
@@ -156,13 +156,13 @@ class RoadmapLesson {
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'id': id,
-        'title': title,
-        'summary': summary,
-        'durationMin': durationMin,
-        'position': position,
-        'completedAt': completedAt?.toIso8601String(),
-      };
+    'id': id,
+    'title': title,
+    'summary': summary,
+    'durationMin': durationMin,
+    'position': position,
+    'completedAt': completedAt?.toIso8601String(),
+  };
 }
 
 class RoadmapCourse {
@@ -204,13 +204,13 @@ class RoadmapCourse {
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'id': id,
-        'title': title,
-        'description': description,
-        'level': level,
-        'position': position,
-        'lessons': lessons.map((lesson) => lesson.toJson()).toList(),
-      };
+    'id': id,
+    'title': title,
+    'description': description,
+    'level': level,
+    'position': position,
+    'lessons': lessons.map((lesson) => lesson.toJson()).toList(),
+  };
 }
 
 class Roadmap {
@@ -233,10 +233,10 @@ class Roadmap {
   }
 
   Roadmap asCached() => Roadmap(
-        courses: courses,
-        completedLessonCount: completedLessonCount,
-        source: RoadmapSource.cached,
-      );
+    courses: courses,
+    completedLessonCount: completedLessonCount,
+    source: RoadmapSource.cached,
+  );
 
   factory Roadmap.fromJson(Object? json) {
     final map = _asMap(json);
@@ -249,9 +249,9 @@ class Roadmap {
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'courses': courses.map((course) => course.toJson()).toList(),
-        'completedLessonCount': completedLessonCount,
-      };
+    'courses': courses.map((course) => course.toJson()).toList(),
+    'completedLessonCount': completedLessonCount,
+  };
 }
 
 class LessonContent {
@@ -289,14 +289,14 @@ class LessonContent {
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'id': id,
-        'course': <String, Object?>{'title': courseTitle},
-        'title': title,
-        'summary': summary,
-        'content': content,
-        'durationMin': durationMin,
-        'completedAt': completedAt?.toIso8601String(),
-      };
+    'id': id,
+    'course': <String, Object?>{'title': courseTitle},
+    'title': title,
+    'summary': summary,
+    'content': content,
+    'durationMin': durationMin,
+    'completedAt': completedAt?.toIso8601String(),
+  };
 }
 
 class VocabularyItem {
@@ -319,10 +319,10 @@ class VocabularyItem {
   final int tier;
 
   String get tierLabel => switch (tier) {
-        1 => 'Tier 1 · everyday',
-        3 => 'Tier 3 · specialist',
-        _ => 'Tier 2 · academic',
-      };
+    1 => 'Tier 1 · everyday',
+    3 => 'Tier 3 · specialist',
+    _ => 'Tier 2 · academic',
+  };
 
   factory VocabularyItem.fromJson(Object? json) {
     final map = _asMap(json);
@@ -338,14 +338,14 @@ class VocabularyItem {
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'id': id,
-        'word': word,
-        'partOfSpeech': partOfSpeech,
-        'definition': definition,
-        'example': example,
-        'level': level,
-        'tier': tier,
-      };
+    'id': id,
+    'word': word,
+    'partOfSpeech': partOfSpeech,
+    'definition': definition,
+    'example': example,
+    'level': level,
+    'tier': tier,
+  };
 }
 
 class VocabularyReview {
@@ -390,21 +390,25 @@ class VocabularyReview {
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'item': item.toJson(),
-        'dueAt': dueAt.toIso8601String(),
-        'intervalDays': intervalDays,
-        'repetitions': repetitions,
-        'lastGrade': lastGrade,
-        'easeFactor': easeFactor,
-        'lapses': lapses,
-        'recallMode': recallMode,
-        'cloze': cloze,
-        'source': source,
-      };
+    'item': item.toJson(),
+    'dueAt': dueAt.toIso8601String(),
+    'intervalDays': intervalDays,
+    'repetitions': repetitions,
+    'lastGrade': lastGrade,
+    'easeFactor': easeFactor,
+    'lapses': lapses,
+    'recallMode': recallMode,
+    'cloze': cloze,
+    'source': source,
+  };
 }
 
 class FillerUse {
-  const FillerUse({required this.word, required this.count, required this.category});
+  const FillerUse({
+    required this.word,
+    required this.count,
+    required this.category,
+  });
 
   final String word;
   final int count;
@@ -480,14 +484,20 @@ class SpeakingFeedback {
       longPauseCount: (map['longPauseCount'] as num?)?.toInt() ?? 0,
       pauseSeconds: (map['pauseSeconds'] as num?)?.toDouble() ?? 0,
       pauseRatio: (map['pauseRatio'] as num?)?.toDouble() ?? 0,
-      pauseNote: map['pauseNote'] as String? ?? 'Pause detection was not available for this session.',
+      pauseNote:
+          map['pauseNote'] as String? ??
+          'Pause detection was not available for this session.',
       wpmChange: (trend['change'] as num?)?.toInt(),
       wpmTrend: (trend['points'] as List<dynamic>? ?? const <dynamic>[])
           .whereType<num>()
           .map((value) => value.toInt())
           .toList(growable: false),
-      wpmTrendMessage: trend['message'] as String? ?? 'Complete another session to see your pace trend.',
-      pronunciationMessage: pronunciation['message'] as String? ?? 'Pronunciation scoring is unavailable.',
+      wpmTrendMessage:
+          trend['message'] as String? ??
+          'Complete another session to see your pace trend.',
+      pronunciationMessage:
+          pronunciation['message'] as String? ??
+          'Pronunciation scoring is unavailable.',
       nextStep: map['nextStep'] as String? ?? 'Try another short response.',
     );
   }
@@ -531,7 +541,12 @@ class SpeakingSessionSummary {
 }
 
 class CoachScenario {
-  const CoachScenario({required this.id, required this.title, required this.description, required this.opening});
+  const CoachScenario({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.opening,
+  });
 
   final String id;
   final String title;
@@ -550,7 +565,12 @@ class CoachScenario {
 }
 
 class CoachTurn {
-  const CoachTurn({required this.id, required this.role, required this.text, required this.createdAt});
+  const CoachTurn({
+    required this.id,
+    required this.role,
+    required this.text,
+    required this.createdAt,
+  });
 
   final String id;
   final String role;
@@ -592,7 +612,9 @@ class CoachConversation {
       scenarioId: map['scenarioId'] as String? ?? '',
       status: map['status'] as String? ?? 'active',
       scenario: CoachScenario.fromJson(map['scenario']),
-      turns: (map['turns'] as List<dynamic>? ?? const <dynamic>[]).map(CoachTurn.fromJson).toList(growable: false),
+      turns: (map['turns'] as List<dynamic>? ?? const <dynamic>[])
+          .map(CoachTurn.fromJson)
+          .toList(growable: false),
       summary: map['summary'] as String?,
     );
   }
@@ -617,16 +639,26 @@ class CoachTurnReceipt {
     final map = _asMap(json);
     return CoachTurnReceipt(
       turn: CoachTurn.fromJson(map['turn']),
-      replyTurn: map['replyTurn'] != null ? CoachTurn.fromJson(map['replyTurn']) : null,
+      replyTurn: map['replyTurn'] != null
+          ? CoachTurn.fromJson(map['replyTurn'])
+          : null,
       recast: map['recast'] as String?,
       turnsCount: (map['turnsCount'] as num?)?.toInt() ?? 0,
-      practiceCue: map['practiceCue'] as String? ?? 'Add one clear detail to your response.',
+      practiceCue:
+          map['practiceCue'] as String? ??
+          'Add one clear detail to your response.',
     );
   }
 }
 
 class IeltsSection {
-  const IeltsSection({required this.id, required this.title, required this.prompt, required this.preparationSeconds, required this.responseSeconds});
+  const IeltsSection({
+    required this.id,
+    required this.title,
+    required this.prompt,
+    required this.preparationSeconds,
+    required this.responseSeconds,
+  });
 
   final String id;
   final String title;
@@ -647,7 +679,12 @@ class IeltsSection {
 }
 
 class IeltsMock {
-  const IeltsMock({required this.id, required this.title, required this.description, required this.sections});
+  const IeltsMock({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.sections,
+  });
 
   final String id;
   final String title;
@@ -660,13 +697,19 @@ class IeltsMock {
       id: map['id'] as String? ?? '',
       title: map['title'] as String? ?? 'Speaking practice',
       description: map['description'] as String? ?? '',
-      sections: (map['sections'] as List<dynamic>? ?? const <dynamic>[]).map(IeltsSection.fromJson).toList(growable: false),
+      sections: (map['sections'] as List<dynamic>? ?? const <dynamic>[])
+          .map(IeltsSection.fromJson)
+          .toList(growable: false),
     );
   }
 }
 
 class IeltsAttemptReference {
-  const IeltsAttemptReference({required this.id, required this.mockId, required this.status});
+  const IeltsAttemptReference({
+    required this.id,
+    required this.mockId,
+    required this.status,
+  });
   final String id;
   final String mockId;
   final String status;
@@ -701,7 +744,8 @@ class IeltsAttemptRecord {
   final List<IeltsSavedResponse> responses;
 
   bool get isInProgress => status == 'in_progress';
-  Set<String> get answeredSectionIds => responses.map((response) => response.sectionId).toSet();
+  Set<String> get answeredSectionIds =>
+      responses.map((response) => response.sectionId).toSet();
 
   factory IeltsAttemptRecord.fromJson(Object? json) {
     final map = _asMap(json);
@@ -779,7 +823,8 @@ class ProgressSummary {
       vocabularyItemsReviewed: value('vocabularyItemsReviewed'),
       vocabularyRecallRepetitions: value('vocabularyRecallRepetitions'),
       speakingSessionsCompleted: value('speakingSessionsCompleted'),
-      vocabularyBaselineScore: (map['vocabularyBaselineScore'] as num?)?.toInt(),
+      vocabularyBaselineScore: (map['vocabularyBaselineScore'] as num?)
+          ?.toInt(),
       vocabularyLatestScore: (map['vocabularyLatestScore'] as num?)?.toInt(),
       vocabularyScoreChange: (map['vocabularyScoreChange'] as num?)?.toInt(),
       fluencyBaselineWpm: (map['fluencyBaselineWpm'] as num?)?.toInt(),
@@ -793,13 +838,19 @@ class ProgressSummary {
       fluencyWpmVariance: (map['fluencyWpmVariance'] as num?)?.toDouble(),
       currentStreak: value('currentStreak'),
       longestStreak: value('longestStreak'),
-      note: map['note'] as String? ?? 'Progress reflects completed practice only.',
+      note:
+          map['note'] as String? ??
+          'Progress reflects completed practice only.',
     );
   }
 }
 
 class PlacementQuestion {
-  const PlacementQuestion({required this.id, required this.prompt, required this.choices});
+  const PlacementQuestion({
+    required this.id,
+    required this.prompt,
+    required this.choices,
+  });
   final String id;
   final String prompt;
   final List<String> choices;
@@ -809,13 +860,22 @@ class PlacementQuestion {
     return PlacementQuestion(
       id: map['id'] as String? ?? '',
       prompt: map['prompt'] as String? ?? '',
-      choices: (map['choices'] as List<dynamic>? ?? const <dynamic>[]).whereType<String>().toList(growable: false),
+      choices: (map['choices'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<String>()
+          .toList(growable: false),
     );
   }
 }
 
 class PlacementResult {
-  const PlacementResult({required this.score, required this.total, required this.baseline, required this.previousScore, required this.change, required this.label});
+  const PlacementResult({
+    required this.score,
+    required this.total,
+    required this.baseline,
+    required this.previousScore,
+    required this.change,
+    required this.label,
+  });
   final int score;
   final int total;
   final bool baseline;
@@ -831,7 +891,9 @@ class PlacementResult {
       baseline: map['baseline'] as bool? ?? false,
       previousScore: (map['previousScore'] as num?)?.toInt(),
       change: (map['change'] as num?)?.toInt(),
-      label: map['label'] as String? ?? 'Practice check, not a certified proficiency result.',
+      label:
+          map['label'] as String? ??
+          'Practice check, not a certified proficiency result.',
     );
   }
 }
@@ -855,13 +917,21 @@ class HabitSnapshot {
       currentDays: (map['currentDays'] as num?)?.toInt() ?? 0,
       longestDays: (map['longestDays'] as num?)?.toInt() ?? 0,
       reminderTime: map['reminderTime'] as String?,
-      reminderDays: (map['reminderDays'] as List<dynamic>? ?? const <dynamic>[]).whereType<num>().map((value) => value.toInt()).toList(growable: false),
+      reminderDays: (map['reminderDays'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<num>()
+          .map((value) => value.toInt())
+          .toList(growable: false),
     );
   }
 }
 
 class EntitlementSnapshot {
-  const EntitlementSnapshot({required this.plan, required this.premium, required this.productId, required this.expiresAt});
+  const EntitlementSnapshot({
+    required this.plan,
+    required this.premium,
+    required this.productId,
+    required this.expiresAt,
+  });
   final String plan;
   final bool premium;
   final String? productId;
@@ -879,7 +949,12 @@ class EntitlementSnapshot {
 }
 
 class ReferralSummary {
-  const ReferralSummary({required this.code, required this.redeemed, required this.referredCount, required this.reward});
+  const ReferralSummary({
+    required this.code,
+    required this.redeemed,
+    required this.referredCount,
+    required this.reward,
+  });
   final String code;
   final bool redeemed;
   final int referredCount;
@@ -1130,9 +1205,10 @@ class ContentOutputPrompt {
     return ContentOutputPrompt(
       instruction: map['instruction'] as String? ?? '',
       requiredWordCount: (map['requiredWordCount'] as num?)?.toInt() ?? 20,
-      recommendedTargetWords: (map['recommendedTargetWords'] as List<dynamic>? ?? const <dynamic>[])
-          .map((e) => e.toString())
-          .toList(growable: false),
+      recommendedTargetWords:
+          (map['recommendedTargetWords'] as List<dynamic>? ?? const <dynamic>[])
+              .map((e) => e.toString())
+              .toList(growable: false),
       sampleResponse: map['sampleResponse'] as String? ?? '',
     );
   }
@@ -1220,12 +1296,14 @@ class ArticleEvaluationResult {
       articleId: map['articleId'] as String? ?? '',
       wordCount: (map['wordCount'] as num?)?.toInt() ?? 0,
       sentenceCount: (map['sentenceCount'] as num?)?.toInt() ?? 1,
-      targetWordsUsed: (map['targetWordsUsed'] as List<dynamic>? ?? const <dynamic>[])
-          .map((e) => e.toString())
-          .toList(growable: false),
-      targetWordsMissing: (map['targetWordsMissing'] as List<dynamic>? ?? const <dynamic>[])
-          .map((e) => e.toString())
-          .toList(growable: false),
+      targetWordsUsed:
+          (map['targetWordsUsed'] as List<dynamic>? ?? const <dynamic>[])
+              .map((e) => e.toString())
+              .toList(growable: false),
+      targetWordsMissing:
+          (map['targetWordsMissing'] as List<dynamic>? ?? const <dynamic>[])
+              .map((e) => e.toString())
+              .toList(growable: false),
       grammarScore: (map['grammarScore'] as num?)?.toInt() ?? 0,
       vocabularyScore: (map['vocabularyScore'] as num?)?.toInt() ?? 0,
       overallScore: (map['overallScore'] as num?)?.toInt() ?? 0,
@@ -1291,7 +1369,8 @@ class CefrCalibrationResult {
     final map = _asMap(json);
     return CefrCalibrationResult(
       calibratedCefr: map['calibratedCefr'] as String? ?? 'B1',
-      syntacticComplexity: (map['syntacticComplexity'] as num?)?.toDouble() ?? 0.7,
+      syntacticComplexity:
+          (map['syntacticComplexity'] as num?)?.toDouble() ?? 0.7,
       lexicalRange: (map['lexicalRange'] as num?)?.toDouble() ?? 0.7,
       adaptiveAction: map['adaptiveAction'] as String? ?? 'maintain_level',
       latencyMs: (map['latencyMs'] as num?)?.toInt() ?? 0,

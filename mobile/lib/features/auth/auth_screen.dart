@@ -52,7 +52,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Something went wrong. Please try again.');
+      if (mounted)
+        setState(() => _error = 'Something went wrong. Please try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -80,7 +81,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       color: ToungularColor.lime,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Icon(Icons.record_voice_over_rounded, color: colors.primary, size: 30),
+                    child: Icon(
+                      Icons.record_voice_over_rounded,
+                      color: colors.primary,
+                      size: 30,
+                    ),
                   ),
                   const SizedBox(height: ToungularSpace.l),
                   Text(
@@ -102,7 +107,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: <Widget>[
                             Text(
-                              _createAccount ? 'Create your account' : 'Welcome back',
+                              _createAccount
+                                  ? 'Create your account'
+                                  : 'Welcome back',
                               style: Theme.of(context).textTheme.headlineSmall,
                             ),
                             const SizedBox(height: ToungularSpace.l),
@@ -110,14 +117,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
                               textInputAction: TextInputAction.next,
-                              autofillHints: const <String>[AutofillHints.email],
+                              autofillHints: const <String>[
+                                AutofillHints.email,
+                              ],
                               decoration: const InputDecoration(
                                 labelText: 'Email',
                                 prefixIcon: Icon(Icons.mail_outline_rounded),
                               ),
                               validator: (value) {
                                 final email = value?.trim() ?? '';
-                                if (!email.contains('@') || email.endsWith('@')) {
+                                if (!email.contains('@') ||
+                                    email.endsWith('@')) {
                                   return 'Enter a valid email address.';
                                 }
                                 return null;
@@ -147,7 +157,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             ),
                             if (_error != null) ...<Widget>[
                               const SizedBox(height: ToungularSpace.m),
-                              Text(_error!, style: TextStyle(color: colors.error)),
+                              Text(
+                                _error!,
+                                style: TextStyle(color: colors.error),
+                              ),
                             ],
                             const SizedBox(height: ToungularSpace.l),
                             FilledButton(
@@ -156,18 +169,25 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                   ? const SizedBox(
                                       width: 22,
                                       height: 22,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
                                     )
-                                  : Text(_createAccount ? 'Create account' : 'Sign in'),
+                                  : Text(
+                                      _createAccount
+                                          ? 'Create account'
+                                          : 'Sign in',
+                                    ),
                             ),
                             const SizedBox(height: ToungularSpace.s),
                             TextButton(
                               onPressed: _busy
                                   ? null
                                   : () => setState(() {
-                                        _createAccount = !_createAccount;
-                                        _error = null;
-                                      }),
+                                      _createAccount = !_createAccount;
+                                      _error = null;
+                                    }),
                               child: Text(
                                 _createAccount
                                     ? 'Already have an account? Sign in'

@@ -6,7 +6,10 @@ import '../../core/storage/session_store.dart';
 import '../../shared/models/learning_models.dart';
 
 final speakingRepositoryProvider = Provider<SpeakingRepository>(
-  (ref) => SpeakingRepository(ref.watch(apiClientProvider), ref.watch(sessionStoreProvider)),
+  (ref) => SpeakingRepository(
+    ref.watch(apiClientProvider),
+    ref.watch(sessionStoreProvider),
+  ),
 );
 
 class SpeakingRepository {
@@ -15,12 +18,14 @@ class SpeakingRepository {
   final ApiClient _api;
   final SessionStore _sessions;
 
-  Future<SpeakingSessionSummary> create({required String prompt, String type = 'prompt'}) =>
-      _api.post<SpeakingSessionSummary>(
-        '/v1/speaking-sessions',
-        <String, Object?>{'type': type, 'prompt': prompt},
-        SpeakingSessionSummary.fromJson,
-      );
+  Future<SpeakingSessionSummary> create({
+    required String prompt,
+    String type = 'prompt',
+  }) => _api.post<SpeakingSessionSummary>(
+    '/v1/speaking-sessions',
+    <String, Object?>{'type': type, 'prompt': prompt},
+    SpeakingSessionSummary.fromJson,
+  );
 
   Future<void> saveTranscript(String id, String transcript) async {
     await _api.put<Object?>(
@@ -35,18 +40,18 @@ class SpeakingRepository {
     int durationSeconds, {
     String? transcript,
     List<double> pauses = const <double>[],
-  }) =>
-      _api.post<SpeakingFeedback>(
-        '/v1/speaking-sessions/$id/analyze',
-        <String, Object?>{
-          'durationSeconds': durationSeconds.clamp(1, 600),
-          if (transcript != null) 'transcript': transcript,
-          if (pauses.isNotEmpty) 'pauses': pauses,
-        },
-        SpeakingFeedback.fromJson,
-      );
+  }) => _api.post<SpeakingFeedback>(
+    '/v1/speaking-sessions/$id/analyze',
+    <String, Object?>{
+      'durationSeconds': durationSeconds.clamp(1, 600),
+      if (transcript != null) 'transcript': transcript,
+      if (pauses.isNotEmpty) 'pauses': pauses,
+    },
+    SpeakingFeedback.fromJson,
+  );
 
-  Future<List<SpeakingSessionSummary>> history() => _api.get<List<SpeakingSessionSummary>>(
+  Future<List<SpeakingSessionSummary>> history() =>
+      _api.get<List<SpeakingSessionSummary>>(
         '/v1/speaking-sessions',
         (json) => (json as List<dynamic>? ?? const <dynamic>[])
             .map(SpeakingSessionSummary.fromJson)
@@ -58,17 +63,16 @@ class SpeakingRepository {
     required int durationSeconds,
     required int pauseCount,
     required double wpm,
-  }) =>
-      _api.post<AffectiveAssessmentResult>(
-        '/v1/decision/affective-state',
-        <String, Object?>{
-          'transcript': transcript,
-          'durationSeconds': durationSeconds,
-          'pauseCount': pauseCount,
-          'wpm': wpm,
-        },
-        AffectiveAssessmentResult.fromJson,
-      );
+  }) => _api.post<AffectiveAssessmentResult>(
+    '/v1/decision/affective-state',
+    <String, Object?>{
+      'transcript': transcript,
+      'durationSeconds': durationSeconds,
+      'pauseCount': pauseCount,
+      'wpm': wpm,
+    },
+    AffectiveAssessmentResult.fromJson,
+  );
 
   Future<void> saveAudioPath(String sessionId, String path) async {
     final session = await _sessions.readSession();
@@ -84,5 +88,6 @@ class SpeakingRepository {
     return preferences.getString(_audioKey(session.userId, sessionId));
   }
 
-  String _audioKey(String userId, String sessionId) => 'toungular.speaking-audio.v1.$userId.$sessionId';
+  String _audioKey(String userId, String sessionId) =>
+      'toungular.speaking-audio.v1.$userId.$sessionId';
 }

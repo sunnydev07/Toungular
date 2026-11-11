@@ -22,10 +22,18 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete your Toungular account?'),
-        content: const Text('Your profile, lesson history, vocabulary reviews, practice transcripts, and saved conversations will be deleted from Toungular.'),
+        content: const Text(
+          'Your profile, lesson history, vocabulary reviews, practice transcripts, and saved conversations will be deleted from Toungular.',
+        ),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep account')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete account')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep account'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete account'),
+          ),
         ],
       ),
     );
@@ -41,7 +49,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Your account could not be deleted. Please try again.');
+      if (mounted)
+        setState(
+          () => _error = 'Your account could not be deleted. Please try again.',
+        );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -55,7 +66,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       body: ListView(
         padding: const EdgeInsets.all(ToungularSpace.l),
         children: <Widget>[
-          Text('Your Toungular account', style: Theme.of(context).textTheme.headlineSmall),
+          Text(
+            'Your Toungular account',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
           const SizedBox(height: ToungularSpace.s),
           Text(email),
           const SizedBox(height: ToungularSpace.xl),
@@ -63,7 +77,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             onPressed: _busy
                 ? null
                 : () async {
-                    await ref.read(sessionControllerProvider.notifier).signOut();
+                    await ref
+                        .read(sessionControllerProvider.notifier)
+                        .signOut();
                     if (mounted) context.go('/auth');
                   },
             icon: const Icon(Icons.logout),
@@ -72,7 +88,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           const SizedBox(height: ToungularSpace.xl),
           Text('Delete account', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: ToungularSpace.xs),
-          const Text('This deletes your Toungular account and learning records. Purchases and financial records, if ever enabled, may be subject to separate legal retention rules.'),
+          const Text(
+            'This deletes your Toungular account and learning records. Purchases and financial records, if ever enabled, may be subject to separate legal retention rules.',
+          ),
           const SizedBox(height: ToungularSpace.s),
           FilledButton.tonalIcon(
             onPressed: _busy ? null : _deleteAccount,
@@ -81,7 +99,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           ),
           if (_error != null) ...<Widget>[
             const SizedBox(height: ToungularSpace.s),
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ],
         ],
       ),

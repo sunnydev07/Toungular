@@ -74,7 +74,8 @@ class _MasteryScreenState extends ConsumerState<MasteryScreen> {
       setState(() {
         _profile = updated;
         _usingToken = false;
-        _successMessage = 'Streak Freeze applied! Your daily streak is protected.';
+        _successMessage =
+            'Streak Freeze applied! Your daily streak is protected.';
       });
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -137,7 +138,9 @@ class _MasteryScreenState extends ConsumerState<MasteryScreen> {
             // Hero Rank Tier Card
             Card(
               color: ToungularColor.ink,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -194,7 +197,9 @@ class _MasteryScreenState extends ConsumerState<MasteryScreen> {
                         value: p.levelProgressPercent / 100.0,
                         minHeight: 10,
                         backgroundColor: Colors.white.withValues(alpha: 0.2),
-                        valueColor: const AlwaysStoppedAnimation<Color>(ToungularColor.lime),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          ToungularColor.lime,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -203,13 +208,19 @@ class _MasteryScreenState extends ConsumerState<MasteryScreen> {
                       children: [
                         Text(
                           '${p.levelProgressPercent}% completed',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 12,
+                          ),
                         ),
                         Text(
                           p.nextLevelXpRequired > 0
                               ? '${p.nextLevelXpRequired} XP to Level ${p.level + 1}'
                               : 'Maximum Rank Attained',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -217,12 +228,19 @@ class _MasteryScreenState extends ConsumerState<MasteryScreen> {
 
                     Row(
                       children: [
-                        const Icon(Icons.star_outline, color: ToungularColor.lime, size: 18),
+                        const Icon(
+                          Icons.star_outline,
+                          color: ToungularColor.lime,
+                          size: 18,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Perk: ${p.perk}',
-                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       ],
@@ -245,7 +263,11 @@ class _MasteryScreenState extends ConsumerState<MasteryScreen> {
                         color: ToungularColor.mist,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(Icons.ac_unit, color: ToungularColor.leaf, size: 28),
+                      child: const Icon(
+                        Icons.ac_unit,
+                        color: ToungularColor.leaf,
+                        size: 28,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -254,12 +276,18 @@ class _MasteryScreenState extends ConsumerState<MasteryScreen> {
                         children: [
                           Text(
                             '${p.freezeTokens} Freeze Tokens',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           const Text(
                             'Protects streaks without punishment anxiety (Deci & Ryan Autonomy)',
-                            style: TextStyle(color: ToungularColor.mutedInk, fontSize: 12),
+                            style: TextStyle(
+                              color: ToungularColor.mutedInk,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -269,9 +297,14 @@ class _MasteryScreenState extends ConsumerState<MasteryScreen> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: ToungularColor.leaf,
                         side: const BorderSide(color: ToungularColor.leaf),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
-                      onPressed: p.freezeTokens > 0 && !_usingToken ? _useToken : null,
+                      onPressed: p.freezeTokens > 0 && !_usingToken
+                          ? _useToken
+                          : null,
                       child: _usingToken
                           ? const SizedBox(
                               width: 16,
@@ -295,12 +328,20 @@ class _MasteryScreenState extends ConsumerState<MasteryScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle_outline, color: ToungularColor.leaf, size: 20),
+                    const Icon(
+                      Icons.check_circle_outline,
+                      color: ToungularColor.leaf,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _successMessage!,
-                        style: const TextStyle(color: ToungularColor.leaf, fontWeight: FontWeight.bold, fontSize: 13),
+                        style: const TextStyle(
+                          color: ToungularColor.leaf,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ],
@@ -310,7 +351,10 @@ class _MasteryScreenState extends ConsumerState<MasteryScreen> {
 
             if (_error != null) ...[
               const SizedBox(height: 8),
-              Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+              Text(
+                _error!,
+                style: const TextStyle(color: Colors.red, fontSize: 13),
+              ),
             ],
 
             const SizedBox(height: 20),
@@ -407,8 +451,21 @@ class _MasteryScreenState extends ConsumerState<MasteryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text('$xp XP', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        '$xp XP',
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -416,7 +473,11 @@ class _MasteryScreenState extends ConsumerState<MasteryScreen> {
                   onPressed: onAction,
                   child: Text(
                     actionLabel,
-                    style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13),
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ],
@@ -424,7 +485,11 @@ class _MasteryScreenState extends ConsumerState<MasteryScreen> {
             const SizedBox(height: 8),
             Text(
               description,
-              style: const TextStyle(color: ToungularColor.mutedInk, fontSize: 13, height: 1.35),
+              style: const TextStyle(
+                color: ToungularColor.mutedInk,
+                fontSize: 13,
+                height: 1.35,
+              ),
             ),
           ],
         ),

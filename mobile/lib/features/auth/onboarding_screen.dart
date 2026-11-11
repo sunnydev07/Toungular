@@ -59,7 +59,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     });
     try {
       final localTimezone = await FlutterTimezone.getLocalTimezone();
-      final profile = await ref.read(profileRepositoryProvider).update(
+      final profile = await ref
+          .read(profileRepositoryProvider)
+          .update(
             goals: _goals.toList(growable: false),
             proficiency: _proficiency,
             dailyMinutes: _dailyMinutes.round(),
@@ -72,7 +74,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Your profile could not be saved. Try again.');
+      if (mounted)
+        setState(() => _error = 'Your profile could not be saved. Try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -99,61 +102,93 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(ToungularSpace.l, ToungularSpace.s, ToungularSpace.l, ToungularSpace.xl),
+          padding: const EdgeInsets.fromLTRB(
+            ToungularSpace.l,
+            ToungularSpace.s,
+            ToungularSpace.l,
+            ToungularSpace.xl,
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 620),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('A plan that fits you.', style: Theme.of(context).textTheme.displaySmall),
+                  Text(
+                    'A plan that fits you.',
+                    style: Theme.of(context).textTheme.displaySmall,
+                  ),
                   const SizedBox(height: ToungularSpace.s),
                   Text(
                     'Tell us what you want to improve. Toungular will shape your daily practice around it.',
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: ToungularSpace.xl),
-                  Text('Where are you today?', style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    'Where are you today?',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   const SizedBox(height: ToungularSpace.s),
                   DropdownButtonFormField<Proficiency>(
                     initialValue: _proficiency,
-                    decoration: const InputDecoration(labelText: 'English level'),
+                    decoration: const InputDecoration(
+                      labelText: 'English level',
+                    ),
                     items: Proficiency.values
-                        .map((level) => DropdownMenuItem<Proficiency>(
-                              value: level,
-                              child: Text(level.label),
-                            ))
+                        .map(
+                          (level) => DropdownMenuItem<Proficiency>(
+                            value: level,
+                            child: Text(level.label),
+                          ),
+                        )
                         .toList(growable: false),
-                    onChanged: _busy ? null : (value) => setState(() => _proficiency = value ?? _proficiency),
+                    onChanged: _busy
+                        ? null
+                        : (value) => setState(
+                            () => _proficiency = value ?? _proficiency,
+                          ),
                   ),
                   const SizedBox(height: ToungularSpace.xl),
-                  Text('What would you like to work on?', style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    'What would you like to work on?',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   const SizedBox(height: ToungularSpace.s),
                   Wrap(
                     spacing: ToungularSpace.s,
                     runSpacing: ToungularSpace.s,
-                    children: _goalOptions.entries.map((goal) {
-                      final selected = _goals.contains(goal.key);
-                      return FilterChip(
-                        selected: selected,
-                        label: Text(goal.value),
-                        onSelected: _busy
-                            ? null
-                            : (value) => setState(() {
-                                  if (value) {
-                                    _goals.add(goal.key);
-                                  } else {
-                                    _goals.remove(goal.key);
-                                  }
-                                }),
-                      );
-                    }).toList(growable: false),
+                    children: _goalOptions.entries
+                        .map((goal) {
+                          final selected = _goals.contains(goal.key);
+                          return FilterChip(
+                            selected: selected,
+                            label: Text(goal.value),
+                            onSelected: _busy
+                                ? null
+                                : (value) => setState(() {
+                                    if (value) {
+                                      _goals.add(goal.key);
+                                    } else {
+                                      _goals.remove(goal.key);
+                                    }
+                                  }),
+                          );
+                        })
+                        .toList(growable: false),
                   ),
                   const SizedBox(height: ToungularSpace.xl),
                   Row(
                     children: <Widget>[
-                      Expanded(child: Text('Daily practice time', style: Theme.of(context).textTheme.titleLarge)),
-                      Text(_dailyMinutes.round().toString() + ' min', style: Theme.of(context).textTheme.titleMedium),
+                      Expanded(
+                        child: Text(
+                          'Daily practice time',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      Text(
+                        _dailyMinutes.round().toString() + ' min',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                     ],
                   ),
                   Slider(
@@ -162,14 +197,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     max: 60,
                     divisions: 11,
                     label: _dailyMinutes.round().toString() + ' minutes',
-                    onChanged: _busy ? null : (value) => setState(() => _dailyMinutes = value),
+                    onChanged: _busy
+                        ? null
+                        : (value) => setState(() => _dailyMinutes = value),
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('I am preparing for IELTS'),
-                    subtitle: const Text('Include speaking mock practice in my learning plan.'),
+                    subtitle: const Text(
+                      'Include speaking mock practice in my learning plan.',
+                    ),
                     value: _ieltsIntent,
-                    onChanged: _busy ? null : (value) => setState(() => _ieltsIntent = value),
+                    onChanged: _busy
+                        ? null
+                        : (value) => setState(() => _ieltsIntent = value),
                   ),
                   const SizedBox(height: ToungularSpace.m),
                   Card(
@@ -201,7 +242,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         ? const SizedBox(
                             width: 22,
                             height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Text('Build my daily plan'),
                   ),

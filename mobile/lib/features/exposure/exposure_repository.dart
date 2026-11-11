@@ -12,11 +12,12 @@ class ExposureRepository {
 
   final ApiClient _api;
 
-  Future<ExposureSummary> load() => _api.get<ExposureSummary>('/v1/exposure', ExposureSummary.fromJson);
+  Future<ExposureSummary> load() =>
+      _api.get<ExposureSummary>('/v1/exposure', ExposureSummary.fromJson);
 
   Future<ExposureSummary> complete(int level) => _api.post<ExposureSummary>(
-        '/v1/exposure/$level/complete',
-        const <String, Object?>{},
-        ExposureSummary.fromJson,
-      );
+    '/v1/exposure/$level/complete',
+    const <String, Object?>{},
+    ExposureSummary.fromJson,
+  );
 }

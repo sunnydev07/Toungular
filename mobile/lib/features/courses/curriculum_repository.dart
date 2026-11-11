@@ -78,14 +78,20 @@ class CurriculumRepository {
         const <String, Object?>{},
         (json) {
           final map = json is Map ? json : const <Object?, Object?>{};
-          return DateTime.tryParse(map['completedAt'] as String? ?? '') ?? DateTime.now();
+          return DateTime.tryParse(map['completedAt'] as String? ?? '') ??
+              DateTime.now();
         },
       );
       await _roadmaps.markLessonCompleteLocally(lessonId, result);
       return result;
     } on ApiException catch (error) {
-      if (error.failure != ApiFailure.network && error.failure != ApiFailure.server) rethrow;
-      await _enqueue(<String, Object?>{'kind': 'complete', 'lessonId': lessonId});
+      if (error.failure != ApiFailure.network &&
+          error.failure != ApiFailure.server)
+        rethrow;
+      await _enqueue(<String, Object?>{
+        'kind': 'complete',
+        'lessonId': lessonId,
+      });
       final completedAt = DateTime.now();
       await _roadmaps.markLessonCompleteLocally(lessonId, completedAt);
       return completedAt;
@@ -133,7 +139,9 @@ class CurriculumRepository {
     final preferences = await SharedPreferences.getInstance();
     final queueKey = await _actionQueueKey();
     final encoded = preferences.getString(queueKey);
-    final actions = encoded == null ? <dynamic>[] : jsonDecode(encoded) as List<dynamic>;
+    final actions = encoded == null
+        ? <dynamic>[]
+        : jsonDecode(encoded) as List<dynamic>;
     actions.add(action);
     await preferences.setString(queueKey, jsonEncode(actions));
   }

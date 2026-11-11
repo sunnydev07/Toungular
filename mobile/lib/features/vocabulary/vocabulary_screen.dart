@@ -57,13 +57,18 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
       _error = null;
     });
     try {
-      final path = await ref.read(voiceRepositoryProvider).synthesizeToFile(text);
+      final path = await ref
+          .read(voiceRepositoryProvider)
+          .synthesizeToFile(text);
       await _player.setFilePath(path);
       await _player.play();
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Audio is unavailable right now. You can still answer from the text.');
+      if (mounted)
+        setState(
+          () => _error = 'Audio is unavailable right now. You can still answer from the text.',
+        );
     } finally {
       if (mounted) setState(() => _playing = false);
     }
@@ -78,11 +83,9 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
       _error = null;
     });
     try {
-      await ref.read(vocabularyRepositoryProvider).submitReview(
-            review.item.id,
-            grade,
-            mode: review.recallMode,
-          );
+      await ref
+          .read(vocabularyRepositoryProvider)
+          .submitReview(review.item.id, grade, mode: review.recallMode);
       if (mounted) {
         setState(() {
           _index++;
@@ -92,7 +95,8 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'This review could not be saved. Try again.');
+      if (mounted)
+        setState(() => _error = 'This review could not be saved. Try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -117,7 +121,9 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
       _error = null;
     });
     try {
-      await ref.read(vocabularyRepositoryProvider).addWord(
+      await ref
+          .read(vocabularyRepositoryProvider)
+          .addWord(
             word: draft.word,
             partOfSpeech: draft.partOfSpeech,
             definition: draft.definition,
@@ -125,135 +131,196 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
             level: draft.level,
           );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('“${draft.word}” added to your reviews.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('“${draft.word}” added to your reviews.')),
+      );
       await _refresh();
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'This word could not be added. Try again.');
+      if (mounted)
+        setState(() => _error = 'This word could not be added. Try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   String _modeHint(VocabularyReview review) => switch (review.recallMode) {
-        'cloze' => 'Fill the gap',
-        'audio' => 'Listen and recall',
-        'sentence' => 'Use it yourself',
-        _ => 'Recall the word',
-      };
+    'cloze' => 'Fill the gap',
+    'audio' => 'Listen and recall',
+    'sentence' => 'Use it yourself',
+    _ => 'Recall the word',
+  };
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Vocabulary practice'),
-          actions: <Widget>[
-            IconButton(tooltip: 'Add a word', onPressed: _busy ? null : _addWord, icon: const Icon(Icons.add)),
-          ],
+    appBar: AppBar(
+      title: const Text('Vocabulary practice'),
+      actions: <Widget>[
+        IconButton(
+          tooltip: 'Add a word',
+          onPressed: _busy ? null : _addWord,
+          icon: const Icon(Icons.add),
         ),
-        body: SafeArea(
-          child: FutureBuilder<List<VocabularyReview>>(
-            future: _items,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-              if (snapshot.hasError) {
-                final error = snapshot.error;
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(ToungularSpace.l),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Text('Reviews could not load', style: Theme.of(context).textTheme.headlineSmall),
-                        const SizedBox(height: ToungularSpace.s),
-                        Text(error is ApiException ? error.message : 'Reconnect and try again.'),
-                        const SizedBox(height: ToungularSpace.m),
-                        OutlinedButton(onPressed: _refresh, child: const Text('Try again')),
-                      ],
+      ],
+    ),
+    body: SafeArea(
+      child: FutureBuilder<List<VocabularyReview>>(
+        future: _items,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting)
+            return const Center(child: CircularProgressIndicator());
+          if (snapshot.hasError) {
+            final error = snapshot.error;
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(ToungularSpace.l),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      'Reviews could not load',
+                      style: Theme.of(context).textTheme.headlineSmall,
                     ),
-                  ),
-                );
-              }
-              final items = snapshot.data!;
-              if (_index >= items.length) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(ToungularSpace.l),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        const Icon(Icons.check_circle_outline, size: 52, color: ToungularColor.leaf),
-                        const SizedBox(height: ToungularSpace.m),
-                        Text('Review complete', style: Theme.of(context).textTheme.headlineSmall),
-                        const SizedBox(height: ToungularSpace.s),
-                        const Text('A quick recall today makes useful words easier to reach later.'),
-                        const SizedBox(height: ToungularSpace.l),
-                        FilledButton(onPressed: () => context.go('/courses'), child: const Text('Back to learning path')),
-                        TextButton(onPressed: _refresh, child: const Text('Check for more reviews')),
-                        TextButton(onPressed: _addWord, child: const Text('Add a word of your own')),
-                      ],
+                    const SizedBox(height: ToungularSpace.s),
+                    Text(
+                      error is ApiException
+                          ? error.message
+                          : 'Reconnect and try again.',
                     ),
-                  ),
-                );
-              }
-              final review = items[_index];
-              final item = review.item;
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(ToungularSpace.l, ToungularSpace.m, ToungularSpace.l, ToungularSpace.xl),
-                children: <Widget>[
-                  LinearProgressIndicator(value: (_index + 1) / items.length),
-                  const SizedBox(height: ToungularSpace.s),
-                  Row(
-                    children: <Widget>[
-                      Expanded(child: Text('Card ${_index + 1} of ${items.length}', style: Theme.of(context).textTheme.bodyMedium)),
-                      Chip(label: Text(_modeHint(review))),
-                    ],
-                  ),
-                  const SizedBox(height: ToungularSpace.l),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(ToungularSpace.xl),
-                      child: Column(
-                        children: <Widget>[
-                          Text(item.tierLabel.toUpperCase(), style: Theme.of(context).textTheme.labelLarge),
-                          const SizedBox(height: ToungularSpace.l),
-                          ..._cardContent(context, review),
-                        ],
-                      ),
+                    const SizedBox(height: ToungularSpace.m),
+                    OutlinedButton(
+                      onPressed: _refresh,
+                      child: const Text('Try again'),
                     ),
-                  ),
-                  const SizedBox(height: ToungularSpace.l),
-                  if (!_revealed)
+                  ],
+                ),
+              ),
+            );
+          }
+          final items = snapshot.data!;
+          if (_index >= items.length) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(ToungularSpace.l),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    const Icon(
+                      Icons.check_circle_outline,
+                      size: 52,
+                      color: ToungularColor.leaf,
+                    ),
+                    const SizedBox(height: ToungularSpace.m),
+                    Text(
+                      'Review complete',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: ToungularSpace.s),
+                    const Text(
+                      'A quick recall today makes useful words easier to reach later.',
+                    ),
+                    const SizedBox(height: ToungularSpace.l),
                     FilledButton(
-                      onPressed: _busy ? null : () => setState(() => _revealed = true),
-                      child: Text(review.recallMode == 'sentence' ? 'Reveal an example' : 'Reveal the word'),
-                    )
-                  else ...<Widget>[
-                    Text('How well did you remember it?', style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: ToungularSpace.s),
-                    for (final grade in <(String, String)>[
-                      ('again', 'Again · show it soon'),
-                      ('hard', 'Hard · short interval'),
-                      ('good', 'Good · remembered'),
-                      ('easy', 'Easy · ready to wait longer'),
-                    ]) ...<Widget>[
-                      OutlinedButton(
-                        onPressed: _busy ? null : () => _grade(grade.$1),
-                        child: Text(grade.$2),
-                      ),
-                      const SizedBox(height: ToungularSpace.xs),
-                    ],
+                      onPressed: () => context.pop(),
+                      child: const Text('Back to learning path'),
+                    ),
+                    TextButton(
+                      onPressed: _refresh,
+                      child: const Text('Check for more reviews'),
+                    ),
+                    TextButton(
+                      onPressed: _addWord,
+                      child: const Text('Add a word of your own'),
+                    ),
                   ],
-                  if (_error != null) ...<Widget>[
-                    const SizedBox(height: ToungularSpace.s),
-                    Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                  ],
+                ),
+              ),
+            );
+          }
+          final review = items[_index];
+          final item = review.item;
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(
+              ToungularSpace.l,
+              ToungularSpace.m,
+              ToungularSpace.l,
+              ToungularSpace.xl,
+            ),
+            children: <Widget>[
+              LinearProgressIndicator(value: (_index + 1) / items.length),
+              const SizedBox(height: ToungularSpace.s),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      'Card ${_index + 1} of ${items.length}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                  Chip(label: Text(_modeHint(review))),
                 ],
-              );
-            },
-          ),
-        ),
-      );
+              ),
+              const SizedBox(height: ToungularSpace.l),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(ToungularSpace.xl),
+                  child: Column(
+                    children: <Widget>[
+                      Text(
+                        item.tierLabel.toUpperCase(),
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: ToungularSpace.l),
+                      ..._cardContent(context, review),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: ToungularSpace.l),
+              if (!_revealed)
+                FilledButton(
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() => _revealed = true),
+                  child: Text(
+                    review.recallMode == 'sentence'
+                        ? 'Reveal an example'
+                        : 'Reveal the word',
+                  ),
+                )
+              else ...<Widget>[
+                Text(
+                  'How well did you remember it?',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: ToungularSpace.s),
+                for (final grade in <(String, String)>[
+                  ('again', 'Again · show it soon'),
+                  ('hard', 'Hard · short interval'),
+                  ('good', 'Good · remembered'),
+                  ('easy', 'Easy · ready to wait longer'),
+                ]) ...<Widget>[
+                  OutlinedButton(
+                    onPressed: _busy ? null : () => _grade(grade.$1),
+                    child: Text(grade.$2),
+                  ),
+                  const SizedBox(height: ToungularSpace.xs),
+                ],
+              ],
+              if (_error != null) ...<Widget>[
+                const SizedBox(height: ToungularSpace.s),
+                Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+    ),
+  );
 
   List<Widget> _cardContent(BuildContext context, VocabularyReview review) {
     final item = review.item;
@@ -261,20 +328,38 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
     switch (review.recallMode) {
       case 'cloze':
         return <Widget>[
-          Text(review.cloze ?? item.example, textAlign: TextAlign.center, style: textTheme.titleLarge),
+          Text(
+            review.cloze ?? item.example,
+            textAlign: TextAlign.center,
+            style: textTheme.titleLarge,
+          ),
           const SizedBox(height: ToungularSpace.m),
           if (!_revealed)
-            const Text('Which word completes the sentence?', textAlign: TextAlign.center)
+            const Text(
+              'Which word completes the sentence?',
+              textAlign: TextAlign.center,
+            )
           else ...<Widget>[
-            Text(item.word, textAlign: TextAlign.center, style: textTheme.displaySmall),
+            Text(
+              item.word,
+              textAlign: TextAlign.center,
+              style: textTheme.displaySmall,
+            ),
             const SizedBox(height: ToungularSpace.m),
-            Text(item.definition, textAlign: TextAlign.center, style: textTheme.titleLarge),
+            Text(
+              item.definition,
+              textAlign: TextAlign.center,
+              style: textTheme.titleLarge,
+            ),
           ],
         ];
       case 'audio':
         return <Widget>[
           if (!_revealed) ...<Widget>[
-            const Text('Listen, then say the word before you reveal it.', textAlign: TextAlign.center),
+            const Text(
+              'Listen, then say the word before you reveal it.',
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: ToungularSpace.m),
             if (_ttsAvailable)
               FilledButton.tonalIcon(
@@ -283,43 +368,88 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
                 label: Text(_playing ? 'Loading audio…' : 'Play the meaning'),
               ),
           ] else ...<Widget>[
-            Text(item.word, textAlign: TextAlign.center, style: textTheme.displaySmall),
+            Text(
+              item.word,
+              textAlign: TextAlign.center,
+              style: textTheme.displaySmall,
+            ),
             const SizedBox(height: ToungularSpace.xs),
             Text(item.partOfSpeech, style: textTheme.bodyMedium),
             const SizedBox(height: ToungularSpace.m),
-            Text(item.definition, textAlign: TextAlign.center, style: textTheme.titleLarge),
+            Text(
+              item.definition,
+              textAlign: TextAlign.center,
+              style: textTheme.titleLarge,
+            ),
             const SizedBox(height: ToungularSpace.m),
-            Text('“${item.example}”', textAlign: TextAlign.center, style: textTheme.bodyLarge),
+            Text(
+              '“${item.example}”',
+              textAlign: TextAlign.center,
+              style: textTheme.bodyLarge,
+            ),
           ],
         ];
       case 'sentence':
         return <Widget>[
-          Text(item.word, textAlign: TextAlign.center, style: textTheme.displaySmall),
+          Text(
+            item.word,
+            textAlign: TextAlign.center,
+            style: textTheme.displaySmall,
+          ),
           const SizedBox(height: ToungularSpace.xs),
           Text(item.partOfSpeech, style: textTheme.bodyMedium),
           const SizedBox(height: ToungularSpace.m),
           if (!_revealed)
-            const Text('Use this word in your own sentence. Say it aloud, then reveal an example.', textAlign: TextAlign.center)
+            const Text(
+              'Use this word in your own sentence. Say it aloud, then reveal an example.',
+              textAlign: TextAlign.center,
+            )
           else ...<Widget>[
-            Text(item.definition, textAlign: TextAlign.center, style: textTheme.titleLarge),
+            Text(
+              item.definition,
+              textAlign: TextAlign.center,
+              style: textTheme.titleLarge,
+            ),
             const SizedBox(height: ToungularSpace.m),
-            Text('“${item.example}”', textAlign: TextAlign.center, style: textTheme.bodyLarge),
+            Text(
+              '“${item.example}”',
+              textAlign: TextAlign.center,
+              style: textTheme.bodyLarge,
+            ),
             const SizedBox(height: ToungularSpace.s),
-            const Text('Grading is your own judgement; Toungular does not validate your sentence.', textAlign: TextAlign.center),
+            const Text(
+              'Grading is your own judgement; Toungular does not validate your sentence.',
+              textAlign: TextAlign.center,
+            ),
           ],
         ];
       default:
         return <Widget>[
-          Text(item.definition, textAlign: TextAlign.center, style: textTheme.titleLarge),
+          Text(
+            item.definition,
+            textAlign: TextAlign.center,
+            style: textTheme.titleLarge,
+          ),
           const SizedBox(height: ToungularSpace.m),
           if (!_revealed)
-            const Text('Which word matches this meaning?', textAlign: TextAlign.center)
+            const Text(
+              'Which word matches this meaning?',
+              textAlign: TextAlign.center,
+            )
           else ...<Widget>[
-            Text(item.word, textAlign: TextAlign.center, style: textTheme.displaySmall),
+            Text(
+              item.word,
+              textAlign: TextAlign.center,
+              style: textTheme.displaySmall,
+            ),
             const SizedBox(height: ToungularSpace.xs),
             Text(item.partOfSpeech, style: textTheme.bodyMedium),
             const SizedBox(height: ToungularSpace.m),
-            Text('“${item.example}”', textAlign: TextAlign.center, style: textTheme.bodyLarge),
+            Text(
+              '“${item.example}”',
+              textAlign: TextAlign.center,
+              style: textTheme.bodyLarge,
+            ),
           ],
         ];
     }
@@ -368,68 +498,88 @@ class _AddWordDialogState extends State<_AddWordDialog> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-    Navigator.of(context).pop(_WordDraft(
-      word: _word.text.trim(),
-      partOfSpeech: _partOfSpeech.text.trim(),
-      definition: _definition.text.trim(),
-      example: _example.text.trim(),
-      level: _level,
-    ));
+    Navigator.of(context).pop(
+      _WordDraft(
+        word: _word.text.trim(),
+        partOfSpeech: _partOfSpeech.text.trim(),
+        definition: _definition.text.trim(),
+        example: _example.text.trim(),
+        level: _level,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: const Text('Add a word'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                TextFormField(
-                  controller: _word,
-                  textCapitalization: TextCapitalization.none,
-                  decoration: const InputDecoration(labelText: 'Word'),
-                  validator: (value) => (value ?? '').trim().isEmpty ? 'Enter a word.' : null,
-                ),
-                const SizedBox(height: ToungularSpace.s),
-                TextFormField(
-                  controller: _partOfSpeech,
-                  decoration: const InputDecoration(labelText: 'Part of speech'),
-                  validator: (value) => (value ?? '').trim().isEmpty ? 'Enter a part of speech.' : null,
-                ),
-                const SizedBox(height: ToungularSpace.s),
-                TextFormField(
-                  controller: _definition,
-                  decoration: const InputDecoration(labelText: 'Definition'),
-                  validator: (value) => (value ?? '').trim().isEmpty ? 'Enter a definition.' : null,
-                ),
-                const SizedBox(height: ToungularSpace.s),
-                TextFormField(
-                  controller: _example,
-                  decoration: const InputDecoration(labelText: 'Example sentence'),
-                  validator: (value) => (value ?? '').trim().isEmpty ? 'Enter an example sentence.' : null,
-                ),
-                const SizedBox(height: ToungularSpace.s),
-                DropdownButtonFormField<String>(
-                  initialValue: _level,
-                  decoration: const InputDecoration(labelText: 'Level'),
-                  items: const <DropdownMenuItem<String>>[
-                    DropdownMenuItem(value: 'beginner', child: Text('Beginner')),
-                    DropdownMenuItem(value: 'elementary', child: Text('Elementary')),
-                    DropdownMenuItem(value: 'intermediate', child: Text('Intermediate')),
-                    DropdownMenuItem(value: 'upperIntermediate', child: Text('Upper intermediate')),
-                    DropdownMenuItem(value: 'advanced', child: Text('Advanced')),
-                  ],
-                  onChanged: (value) => setState(() => _level = value ?? _level),
-                ),
-              ],
+    title: const Text('Add a word'),
+    content: SingleChildScrollView(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            TextFormField(
+              controller: _word,
+              textCapitalization: TextCapitalization.none,
+              decoration: const InputDecoration(labelText: 'Word'),
+              validator: (value) =>
+                  (value ?? '').trim().isEmpty ? 'Enter a word.' : null,
             ),
-          ),
+            const SizedBox(height: ToungularSpace.s),
+            TextFormField(
+              controller: _partOfSpeech,
+              decoration: const InputDecoration(labelText: 'Part of speech'),
+              validator: (value) => (value ?? '').trim().isEmpty
+                  ? 'Enter a part of speech.'
+                  : null,
+            ),
+            const SizedBox(height: ToungularSpace.s),
+            TextFormField(
+              controller: _definition,
+              decoration: const InputDecoration(labelText: 'Definition'),
+              validator: (value) =>
+                  (value ?? '').trim().isEmpty ? 'Enter a definition.' : null,
+            ),
+            const SizedBox(height: ToungularSpace.s),
+            TextFormField(
+              controller: _example,
+              decoration: const InputDecoration(labelText: 'Example sentence'),
+              validator: (value) => (value ?? '').trim().isEmpty
+                  ? 'Enter an example sentence.'
+                  : null,
+            ),
+            const SizedBox(height: ToungularSpace.s),
+            DropdownButtonFormField<String>(
+              initialValue: _level,
+              decoration: const InputDecoration(labelText: 'Level'),
+              items: const <DropdownMenuItem<String>>[
+                DropdownMenuItem(value: 'beginner', child: Text('Beginner')),
+                DropdownMenuItem(
+                  value: 'elementary',
+                  child: Text('Elementary'),
+                ),
+                DropdownMenuItem(
+                  value: 'intermediate',
+                  child: Text('Intermediate'),
+                ),
+                DropdownMenuItem(
+                  value: 'upperIntermediate',
+                  child: Text('Upper intermediate'),
+                ),
+                DropdownMenuItem(value: 'advanced', child: Text('Advanced')),
+              ],
+              onChanged: (value) => setState(() => _level = value ?? _level),
+            ),
+          ],
         ),
-        actions: <Widget>[
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-          FilledButton(onPressed: _save, child: const Text('Add word')),
-        ],
-      );
+      ),
+    ),
+    actions: <Widget>[
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(onPressed: _save, child: const Text('Add word')),
+    ],
+  );
 }

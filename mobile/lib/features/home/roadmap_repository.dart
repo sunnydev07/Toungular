@@ -23,10 +23,7 @@ class RoadmapRepository {
 
   Future<Roadmap> load() async {
     try {
-      final roadmap = await _api.get<Roadmap>(
-        '/v1/roadmap',
-        Roadmap.fromJson,
-      );
+      final roadmap = await _api.get<Roadmap>('/v1/roadmap', Roadmap.fromJson);
       final session = await _sessionStore.readSession();
       if (session != null) {
         final preferences = await SharedPreferences.getInstance();
@@ -44,7 +41,10 @@ class RoadmapRepository {
     }
   }
 
-  Future<void> markLessonCompleteLocally(String lessonId, DateTime completedAt) async {
+  Future<void> markLessonCompleteLocally(
+    String lessonId,
+    DateTime completedAt,
+  ) async {
     final session = await _sessionStore.readSession();
     if (session == null) return;
     final preferences = await SharedPreferences.getInstance();
@@ -53,33 +53,45 @@ class RoadmapRepository {
     if (encoded == null) return;
     try {
       final roadmap = Roadmap.fromJson(jsonDecode(encoded));
-      final courses = roadmap.courses.map((course) {
-        final lessons = course.lessons.map((lesson) => lesson.id == lessonId
-            ? RoadmapLesson(
-                id: lesson.id,
-                title: lesson.title,
-                summary: lesson.summary,
-                durationMin: lesson.durationMin,
-                position: lesson.position,
-                completedAt: completedAt,
-              )
-            : lesson).toList(growable: false);
-        return RoadmapCourse(
-          id: course.id,
-          title: course.title,
-          description: course.description,
-          level: course.level,
-          position: course.position,
-          lessons: lessons,
-        );
-      }).toList(growable: false);
+      final courses = roadmap.courses
+          .map((course) {
+            final lessons = course.lessons
+                .map(
+                  (lesson) => lesson.id == lessonId
+                      ? RoadmapLesson(
+                          id: lesson.id,
+                          title: lesson.title,
+                          summary: lesson.summary,
+                          durationMin: lesson.durationMin,
+                          position: lesson.position,
+                          completedAt: completedAt,
+                        )
+                      : lesson,
+                )
+                .toList(growable: false);
+            return RoadmapCourse(
+              id: course.id,
+              title: course.title,
+              description: course.description,
+              level: course.level,
+              position: course.position,
+              lessons: lessons,
+            );
+          })
+          .toList(growable: false);
       final completedCount = courses.fold<int>(
         0,
-        (total, course) => total + course.lessons.where((lesson) => lesson.isComplete).length,
+        (total, course) =>
+            total + course.lessons.where((lesson) => lesson.isComplete).length,
       );
       await preferences.setString(
         key,
-        jsonEncode(Roadmap(courses: courses, completedLessonCount: completedCount).toJson()),
+        jsonEncode(
+          Roadmap(
+            courses: courses,
+            completedLessonCount: completedCount,
+          ).toJson(),
+        ),
       );
     } on FormatException {
       await preferences.remove(key);

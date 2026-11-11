@@ -32,13 +32,15 @@ class ApiException implements Exception {
 
 class ApiClient {
   ApiClient(this._sessionStore)
-      : _dio = Dio(BaseOptions(
+    : _dio = Dio(
+        BaseOptions(
           baseUrl: AppEnvironment.apiBaseUrl,
           connectTimeout: const Duration(seconds: 12),
           receiveTimeout: const Duration(seconds: 20),
           sendTimeout: const Duration(seconds: 20),
           headers: const <String, Object>{'Accept': 'application/json'},
-        ));
+        ),
+      );
 
   final SessionStore _sessionStore;
   final Dio _dio;
@@ -50,16 +52,14 @@ class ApiClient {
     String path,
     Object? body,
     T Function(Object? json) decoder,
-  ) =>
-      _request(path, 'POST', decoder, body: body);
+  ) => _request(path, 'POST', decoder, body: body);
 
   Future<T> postRaw<T>(
     String path,
     List<int> bytes,
     String contentType,
     T Function(Object? json) decoder,
-  ) =>
-      _request(path, 'POST', decoder, body: bytes, contentType: contentType);
+  ) => _request(path, 'POST', decoder, body: bytes, contentType: contentType);
 
   Future<Uint8List> postBytes(String path, Object? body) async {
     try {
@@ -74,7 +74,10 @@ class ApiClient {
       final data = response.data;
       if (data is Uint8List) return data;
       if (data is List<int>) return Uint8List.fromList(data);
-      throw const ApiException(message: 'The voice response was not audio.', failure: ApiFailure.unknown);
+      throw const ApiException(
+        message: 'The voice response was not audio.',
+        failure: ApiFailure.unknown,
+      );
     } on DioException catch (error) {
       throw _translate(error);
     }
@@ -84,15 +87,13 @@ class ApiClient {
     String path,
     Object? body,
     T Function(Object? json) decoder,
-  ) =>
-      _request(path, 'PATCH', decoder, body: body);
+  ) => _request(path, 'PATCH', decoder, body: body);
 
   Future<T> put<T>(
     String path,
     Object? body,
     T Function(Object? json) decoder,
-  ) =>
-      _request(path, 'PUT', decoder, body: body);
+  ) => _request(path, 'PUT', decoder, body: body);
 
   Future<T> delete<T>(String path, T Function(Object? json) decoder) =>
       _request(path, 'DELETE', decoder);
@@ -136,7 +137,8 @@ class ApiClient {
   ApiException _translate(DioException error) {
     final status = error.response?.statusCode;
     final body = error.response?.data;
-    var message = 'Could not reach Toungular. Check your connection and try again.';
+    var message =
+        'Could not reach Toungular. Check your connection and try again.';
     var failure = ApiFailure.network;
 
     if (status != null) {

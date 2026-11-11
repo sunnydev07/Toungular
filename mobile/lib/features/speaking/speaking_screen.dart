@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,19 +12,15 @@ import '../../core/network/api_client.dart';
 import '../../core/state/voice_activity_controller.dart';
 import '../../core/theme/toungular_theme.dart';
 import '../../core/voice/voice_repository.dart';
+import '../../shared/content/speaking_prompts.dart';
 import '../../shared/models/learning_models.dart';
 import '../exposure/exposure_repository.dart';
 import '../ielts/ielts_repository.dart';
+import 'speaking_feedback_view.dart';
 import 'speaking_repository.dart';
 
-const _prompts = <String>[
-  'Describe a small habit that helps you have a better day.',
-  'Tell a friend about a place in your town that you enjoy.',
-  'Explain a skill you would like to learn and why it matters to you.',
-  'Talk about a time you solved a problem with someone else.',
-];
-
 const _silenceDbfs = -40.0;
+const _meterBars = 22;
 
 class SpeakingScreen extends ConsumerStatefulWidget {
   const SpeakingScreen({
@@ -45,7 +42,8 @@ class SpeakingScreen extends ConsumerStatefulWidget {
   ConsumerState<SpeakingScreen> createState() => _SpeakingScreenState();
 }
 
-class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
+class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
+    with SingleTickerProviderStateMixin {
   final _recorder = AudioRecorder();
   final _player = AudioPlayer();
   final _transcriptController = TextEditingController();
@@ -61,22 +59,46 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
   bool _anonymous = false;
   bool _sttAvailable = false;
   bool _transcribing = false;
+  double _level = 0;
+  String? _promptOverride;
+  String? _tip;
   String? _sessionId;
   String? _audioPath;
   String? _error;
   String? _exposureMessage;
   SpeakingFeedback? _feedback;
   AffectiveAssessmentResult? _affective;
+  late final AnimationController _pulse;
 
-  String get _prompt => widget.prompt ?? _prompts[_promptIndex];
+  // IELTS and comfort prompts are fixed; prompt-type sessions may switch.
+  bool get _fixedPrompt => widget.prompt != null && widget.type != 'prompt';
+  String get _prompt =>
+      _promptOverride ?? widget.prompt ?? speakingPrompts[_promptIndex].text;
   bool get _isAnonymous => _anonymous || widget.type == 'anonymous';
   bool get _isExposure => widget.type.startsWith('exposure-');
-  int? get _exposureLevel => _isExposure ? int.tryParse(widget.type.split('-').last) : null;
+  int? get _exposureLevel =>
+      _isExposure ? int.tryParse(widget.type.split('-').last) : null;
+  int get _cueAfterSeconds => (widget.maxDurationSeconds ?? 120) ~/ 2;
+  bool get _showCue => _recording && _seconds >= _cueAfterSeconds;
+
+  SpeakingPrompt? get _matchedPrompt {
+    for (final candidate in speakingPrompts) {
+      if (candidate.text == _prompt) return candidate;
+    }
+    return null;
+  }
 
   @override
   void initState() {
     super.initState();
     _anonymous = widget.type == 'anonymous';
+    if (widget.prompt != null && widget.type == 'prompt') {
+      _promptIndex = dailyPromptIndex(DateTime.now());
+    }
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
     _loadVoiceStatus();
   }
 
@@ -88,6 +110,7 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
     unawaited(_recorder.dispose());
     unawaited(_player.dispose());
     _transcriptController.dispose();
+    _pulse.dispose();
     ref.read(voiceActivityProvider.notifier).setActive(false);
     super.dispose();
   }
@@ -113,13 +136,16 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
       _affective = null;
       _exposureMessage = null;
       _seconds = 0;
+      _level = 0;
       _pauses.clear();
       _silenceStarted = null;
     });
     try {
       final allowed = await _recorder.hasPermission();
       if (!allowed) {
-        setState(() => _error = 'Microphone access is needed to record your answer. You can change this in Android settings.');
+        setState(
+          () => _error = 'Microphone access is needed to record your answer. You can change this in Android settings.',
+        );
         return;
       }
       final repository = ref.read(speakingRepositoryProvider);
@@ -127,8 +153,12 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
         prompt: _prompt,
         type: _isAnonymous ? 'anonymous' : widget.type,
       );
-      final path = '${Directory.systemTemp.path}${Platform.pathSeparator}toungular-${session.id}.m4a';
-      await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+      final path =
+          '${Directory.systemTemp.path}${Platform.pathSeparator}toungular-${session.id}.m4a';
+      await _recorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: path,
+      );
       if (!_isAnonymous) await repository.saveAudioPath(session.id, path);
       _sessionId = session.id;
       _audioPath = path;
@@ -139,6 +169,8 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
           .onAmplitudeChanged(const Duration(milliseconds: 250))
           .listen(_trackAmplitude);
       ref.read(voiceActivityProvider.notifier).setActive(true);
+      if (mounted && !MediaQuery.disableAnimationsOf(context))
+        _pulse.repeat(reverse: true);
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted) return;
         final limit = widget.maxDurationSeconds;
@@ -153,7 +185,10 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Recording could not start. Check microphone access and try again.');
+      if (mounted)
+        setState(
+          () => _error = 'Recording could not start. Check microphone access and try again.',
+        );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -161,6 +196,8 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
 
   void _trackAmplitude(Amplitude amplitude) {
     if (!_recording) return;
+    final db = amplitude.current.clamp(-60.0, 0.0).toDouble();
+    if (mounted) setState(() => _level = (db + 60) / 60);
     if (amplitude.current < _silenceDbfs) {
       _silenceStarted ??= DateTime.now();
       return;
@@ -191,14 +228,22 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
       if (path != null) _audioPath = path;
       _timer?.cancel();
       _recording = false;
+      _pulse.stop();
+      _pulse.value = 0;
       ref.read(voiceActivityProvider.notifier).setActive(false);
       if (_sttAvailable && path != null) {
         unawaited(_transcribe());
       }
     } catch (_) {
-      setState(() => _error = 'The recording could not be saved. You can discard it and start again.');
+      setState(
+        () => _error = 'The recording could not be saved. You can discard it and start again.',
+      );
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted)
+        setState(() {
+          _busy = false;
+          _level = 0;
+        });
     }
   }
 
@@ -208,6 +253,8 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
     _amplitude = null;
     if (_recording) await _recorder.cancel();
     _timer?.cancel();
+    _pulse.stop();
+    _pulse.value = 0;
     final path = _audioPath;
     if (path != null) {
       final file = File(path);
@@ -220,6 +267,7 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
       _sessionId = null;
       _audioPath = null;
       _seconds = 0;
+      _level = 0;
       _feedback = null;
       _affective = null;
       _error = null;
@@ -233,21 +281,26 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
   Future<void> _playRecording() async {
     final path = _audioPath;
     if (path == null || !await File(path).exists()) {
-      setState(() => _error = 'This recording is no longer available on this device.');
+      setState(
+        () => _error = 'This recording is no longer available on this device.',
+      );
       return;
     }
     try {
       await _player.setFilePath(path);
       unawaited(_player.play());
     } catch (_) {
-      if (mounted) setState(() => _error = 'This recording could not be played.');
+      if (mounted)
+        setState(() => _error = 'This recording could not be played.');
     }
   }
 
   Future<void> _transcribe() async {
     final path = _audioPath;
     if (path == null || !await File(path).exists()) {
-      setState(() => _error = 'This recording is no longer available on this device.');
+      setState(
+        () => _error = 'This recording is no longer available on this device.',
+      );
       return;
     }
     setState(() {
@@ -255,12 +308,17 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
       _error = null;
     });
     try {
-      final text = await ref.read(voiceRepositoryProvider).transcribe(File(path));
+      final text = await ref
+          .read(voiceRepositoryProvider)
+          .transcribe(File(path));
       if (mounted) setState(() => _transcriptController.text = text);
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Transcription is unavailable right now. Type what you said instead.');
+      if (mounted)
+        setState(
+          () => _error = 'Transcription is unavailable right now. Type what you said instead.',
+        );
     } finally {
       if (mounted) setState(() => _transcribing = false);
     }
@@ -270,7 +328,9 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
     final sessionId = _sessionId;
     final transcript = _transcriptController.text.trim();
     if (sessionId == null || transcript.isEmpty) {
-      setState(() => _error = 'Add the words you said so Toungular can show transcript-based feedback.');
+      setState(
+        () => _error = 'Add the words you said so Toungular can show transcript-based feedback.',
+      );
       return;
     }
     setState(() {
@@ -287,7 +347,9 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
         pauses: _pauses,
       );
       if (widget.ieltsAttemptId != null && widget.ieltsSectionId != null) {
-        await ref.read(ieltsRepositoryProvider).submitResponse(
+        await ref
+            .read(ieltsRepositoryProvider)
+            .submitResponse(
               widget.ieltsAttemptId!,
               widget.ieltsSectionId!,
               transcript,
@@ -297,14 +359,23 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
       if (level != null) {
         try {
           await ref.read(exposureRepositoryProvider).complete(level);
-          if (mounted) setState(() => _exposureMessage = 'Comfort level $level session recorded.');
+          if (mounted)
+            setState(
+              () => _exposureMessage = 'Comfort level $level session recorded.',
+            );
         } on ApiException catch (error) {
-          if (mounted) setState(() => _exposureMessage = 'Your feedback is ready, but the comfort level could not be updated: ${error.message}');
+          if (mounted)
+            setState(
+              () => _exposureMessage =
+                  'Your feedback is ready, but the comfort level could not be updated: ${error.message}',
+            );
         }
       }
       if (mounted) setState(() => _feedback = feedback);
       try {
-        final affective = await ref.read(speakingRepositoryProvider).assessAffectiveState(
+        final affective = await ref
+            .read(speakingRepositoryProvider)
+            .assessAffectiveState(
               transcript: transcript,
               durationSeconds: _seconds,
               pauseCount: _pauses.length,
@@ -315,263 +386,552 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Feedback is unavailable right now. Your draft remains on this screen.');
+      if (mounted)
+        setState(
+          () => _error = 'Feedback is unavailable right now. Your draft remains on this screen.',
+        );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  String get _clock => '${(_seconds ~/ 60).toString().padLeft(2, '0')}:${(_seconds % 60).toString().padLeft(2, '0')}';
+  /// The one primary action from feedback: keep the tip, drop the take, record again.
+  Future<void> _retryWithTip() async {
+    setState(() => _tip = _feedback?.nextStep);
+    await _discard();
+    if (mounted) await _start();
+  }
+
+  Future<void> _nextPrompt() async {
+    setState(() {
+      _tip = null;
+      _promptIndex = (_promptIndex + 1) % speakingPrompts.length;
+      _promptOverride = speakingPrompts[_promptIndex].text;
+    });
+    await _discard();
+  }
+
+  void _showHelp() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.all(ToungularSpace.l),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'How this works',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: ToungularSpace.s),
+            const Text(
+              '1. Tap the record button and answer out loud.\n'
+              '2. Stop — Toungular writes a transcript you can edit.\n'
+              '3. Tap Check my answer for feedback.\n'
+              '4. Retry with the tip still in view.',
+            ),
+            const SizedBox(height: ToungularSpace.l),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(sheetContext),
+                child: const Text('Got it'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String get _clock =>
+      '${(_seconds ~/ 60).toString().padLeft(2, '0')}:${(_seconds % 60).toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
-    final isFixedPrompt = widget.prompt != null;
-    final showAnonymousOption = !isFixedPrompt && widget.type == 'prompt';
+    final feedback = _feedback;
+    final showAnonymousOption =
+        widget.prompt == null && widget.type == 'prompt';
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isExposure ? 'Comfort practice' : 'Speaking practice'),
-        actions: <Widget>[
-          IconButton(tooltip: 'Practice history', onPressed: () => context.go('/speaking/history'), icon: const Icon(Icons.history)),
-        ],
+        title: Text(
+          feedback != null
+              ? 'Feedback'
+              : (_isExposure ? 'Comfort practice' : 'Speaking'),
+        ),
+        actions: feedback == null
+            ? <Widget>[
+                IconButton(
+                  tooltip: 'Help',
+                  onPressed: _showHelp,
+                  icon: const Icon(Icons.help_outline_rounded),
+                ),
+                IconButton(
+                  tooltip: 'Practice history',
+                  onPressed: () => context.pushReplacement('/speaking/history'),
+                  icon: const Icon(Icons.history_outlined),
+                ),
+              ]
+            : const <Widget>[],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(ToungularSpace.l, ToungularSpace.s, ToungularSpace.l, ToungularSpace.xl),
-          children: <Widget>[
-            Text('Take a moment. Then say it your way.', style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: ToungularSpace.s),
-            const Text('Your recording stays on this device. Transcript estimates describe this practice attempt and are not a proficiency score.'),
-            const SizedBox(height: ToungularSpace.l),
-            if (!isFixedPrompt && !_sessionStarted)
-              DropdownButtonFormField<int>(
-                initialValue: _promptIndex,
-                decoration: const InputDecoration(labelText: 'Choose a prompt'),
-                items: List<DropdownMenuItem<int>>.generate(
-                  _prompts.length,
-                  (index) => DropdownMenuItem<int>(value: index, child: Text('Prompt ${index + 1}')),
-                ),
-                onChanged: (value) => setState(() => _promptIndex = value ?? _promptIndex),
+        child: feedback != null
+            ? SpeakingFeedbackView(
+                feedback: feedback,
+                affective: _affective,
+                transcript: _transcriptController.text,
+                showRetry: widget.ieltsAttemptId == null && !_isExposure,
+                onRetryWithTip: _retryWithTip,
+                onNextPrompt: _nextPrompt,
+                onReturnToIelts: widget.ieltsAttemptId != null
+                    ? () => context.pop(true)
+                    : null,
+                onBackToComfort: widget.ieltsAttemptId == null && _isExposure
+                    ? () => context.pop()
+                    : null,
+                onViewHistory: () =>
+                    context.pushReplacement('/speaking/history'),
+              )
+            : _practiceBody(context, showAnonymousOption),
+      ),
+    );
+  }
+
+  Widget _practiceBody(BuildContext context, bool showAnonymousOption) {
+    final matched = _matchedPrompt;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (_tip != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              ToungularSpace.l,
+              ToungularSpace.s,
+              ToungularSpace.l,
+              0,
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(ToungularSpace.s),
+              decoration: BoxDecoration(
+                color: ToungularColor.butter,
+                borderRadius: BorderRadius.circular(ToungularRadius.card),
               ),
-            if (showAnonymousOption && !_sessionStarted) ...<Widget>[
-              const SizedBox(height: ToungularSpace.s),
-              Card(
-                color: ToungularColor.mist,
-                child: SwitchListTile(
-                  value: _anonymous,
-                  onChanged: (value) => setState(() => _anonymous = value),
-                  title: const Text('Anonymous practice'),
-                  subtitle: const Text('Feedback appears here, but your transcript and result are not saved to history.'),
-                ),
-              ),
-            ],
-            Card(
-              color: ToungularColor.mist,
-              child: Padding(
-                padding: const EdgeInsets.all(ToungularSpace.l),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text('YOUR PROMPT', style: Theme.of(context).textTheme.labelLarge),
-                    const SizedBox(height: ToungularSpace.s),
-                    Text(_prompt, style: Theme.of(context).textTheme.titleLarge),
-                    if (_isAnonymous) ...<Widget>[
-                      const SizedBox(height: ToungularSpace.s),
-                      const Text('Anonymous mode: only transcript-based feedback is shown, and it is not saved.'),
-                    ],
-                  ],
-                ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Icon(
+                    Icons.lightbulb_outline_rounded,
+                    size: 18,
+                    color: ToungularColor.leaf,
+                  ),
+                  const SizedBox(width: ToungularSpace.xs),
+                  Expanded(
+                    child: Text(
+                      'Tip from your last attempt: $_tip',
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(color: ToungularColor.ink),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: ToungularSpace.l),
-            Center(child: Text(_clock, style: Theme.of(context).textTheme.displaySmall)),
-            const SizedBox(height: ToungularSpace.s),
-            if (!_sessionStarted)
-              FilledButton.icon(
-                onPressed: _busy ? null : _start,
-                icon: const Icon(Icons.mic),
-                label: Text(_busy ? 'Starting…' : 'Start recording'),
-              )
-            else if (_recording)
-              FilledButton.icon(onPressed: _busy ? null : _stop, icon: const Icon(Icons.stop_circle_outlined), label: const Text('Stop recording'))
-            else ...<Widget>[
-              OutlinedButton.icon(onPressed: _busy ? null : _playRecording, icon: const Icon(Icons.play_arrow), label: const Text('Play my recording')),
-              if (_sttAvailable) ...<Widget>[
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            ToungularSpace.l,
+            ToungularSpace.s,
+            ToungularSpace.l,
+            0,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(ToungularSpace.m),
+            decoration: BoxDecoration(
+              color: ToungularColor.mist,
+              borderRadius: BorderRadius.circular(ToungularRadius.card),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'YOUR PROMPT',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    letterSpacing: 1.2,
+                    color: ToungularColor.leaf,
+                  ),
+                ),
+                const SizedBox(height: ToungularSpace.xs),
+                Text(_prompt, style: Theme.of(context).textTheme.titleLarge),
+                if (matched != null && matched.hints.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: ToungularSpace.s),
+                  for (final hint in matched.hints)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          const Icon(
+                            Icons.subdirectory_arrow_right_rounded,
+                            size: 18,
+                            color: ToungularColor.leaf,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              hint,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+                if (_isAnonymous) ...<Widget>[
+                  const SizedBox(height: ToungularSpace.s),
+                  const Text(
+                    'Anonymous mode: only transcript-based feedback is shown, and it is not saved.',
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              ToungularSpace.l,
+              ToungularSpace.m,
+              ToungularSpace.l,
+              ToungularSpace.xl,
+            ),
+            children: <Widget>[
+              if (!_fixedPrompt && !_sessionStarted)
+                DropdownButtonFormField<int>(
+                  initialValue: _promptIndex,
+                  decoration: const InputDecoration(
+                    labelText: 'Choose a prompt',
+                  ),
+                  items: List<DropdownMenuItem<int>>.generate(
+                    speakingPrompts.length,
+                    (index) => DropdownMenuItem<int>(
+                      value: index,
+                      child: Text('Prompt ${index + 1}'),
+                    ),
+                  ),
+                  onChanged: (value) => setState(() {
+                    _promptIndex = value ?? _promptIndex;
+                    _promptOverride = speakingPrompts[_promptIndex].text;
+                  }),
+                ),
+              if (showAnonymousOption && !_sessionStarted) ...<Widget>[
                 const SizedBox(height: ToungularSpace.s),
-                OutlinedButton.icon(
-                  onPressed: _busy || _transcribing ? null : _transcribe,
-                  icon: const Icon(Icons.graphic_eq_rounded),
-                  label: Text(_transcribing ? 'Transcribing…' : 'Transcribe my recording'),
+                Card(
+                  color: ToungularColor.mist,
+                  child: SwitchListTile(
+                    value: _anonymous,
+                    onChanged: (value) => setState(() => _anonymous = value),
+                    title: const Text('Anonymous practice'),
+                    subtitle: const Text(
+                      'Feedback appears here, but your transcript and result are not saved to history.',
+                    ),
+                  ),
                 ),
               ],
               const SizedBox(height: ToungularSpace.s),
-              TextField(
-                controller: _transcriptController,
-                minLines: 4,
-                maxLines: 9,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(labelText: 'What did you say?', hintText: 'Type an editable transcript of your answer…'),
+              Center(
+                child: ExcludeSemantics(
+                  child: Text(
+                    _clock,
+                    style: Theme.of(context).textTheme.displaySmall,
+                  ),
+                ),
               ),
-              const SizedBox(height: ToungularSpace.s),
-              FilledButton(
-                onPressed: _busy || _transcribing || _feedback != null ? null : _analyze,
-                child: Text(_transcribing ? 'Transcribing…' : _busy ? 'Saving…' : 'Get practice feedback'),
+              const SizedBox(height: ToungularSpace.m),
+              if (!_sessionStarted) ...<Widget>[
+                Center(
+                  child: _RecordButton(
+                    recording: false,
+                    reducedMotion: MediaQuery.disableAnimationsOf(context),
+                    pulse: _pulse,
+                    label: 'Start recording',
+                    onTap: _busy ? null : _start,
+                  ),
+                ),
+                const SizedBox(height: ToungularSpace.s),
+                Center(
+                  child: Text(
+                    _busy ? 'Starting…' : 'Tap to record',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ] else if (_recording) ...<Widget>[
+                Center(
+                  child: _RecordButton(
+                    recording: true,
+                    reducedMotion: MediaQuery.disableAnimationsOf(context),
+                    pulse: _pulse,
+                    label: 'Recording, tap to stop',
+                    onTap: _busy ? null : _stop,
+                  ),
+                ),
+                const SizedBox(height: ToungularSpace.s),
+                Center(
+                  child: Text(
+                    'Recording · tap to stop',
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(color: ToungularColor.coral),
+                  ),
+                ),
+                const SizedBox(height: ToungularSpace.s),
+                _LevelMeter(level: _level),
+                if (_showCue) ...<Widget>[
+                  const SizedBox(height: ToungularSpace.s),
+                  Container(
+                    padding: const EdgeInsets.all(ToungularSpace.s),
+                    decoration: BoxDecoration(
+                      color: ToungularColor.peach,
+                      borderRadius: BorderRadius.circular(ToungularRadius.card),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        const Icon(
+                          Icons.wb_sunny_outlined,
+                          size: 18,
+                          color: ToungularColor.coral,
+                        ),
+                        const SizedBox(width: ToungularSpace.xs),
+                        Expanded(
+                          child: Text(
+                            'Halfway through your planned time. Slow down slightly and finish the thought.',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: ToungularColor.ink),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ] else ...<Widget>[
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.all(ToungularSpace.m),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                'Transcript',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                            ),
+                            if (_transcribing)
+                              Text(
+                                'Transcribing…',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: ToungularSpace.xs),
+                        if (_transcribing)
+                          const LinearProgressIndicator(
+                            semanticsLabel: 'Transcribing your recording',
+                          )
+                        else
+                          TextField(
+                            controller: _transcriptController,
+                            minLines: 3,
+                            maxLines: 6,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: InputDecoration(
+                              hintText: _sttAvailable
+                                  ? 'Edit what Toungular heard…'
+                                  : 'Type what you said…',
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: ToungularSpace.s),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _transcriptController,
+                  builder: (context, value, _) => FilledButton(
+                    onPressed:
+                        _busy || _transcribing || value.text.trim().isEmpty
+                        ? null
+                        : _analyze,
+                    child: Text(_busy ? 'Saving…' : 'Check my answer'),
+                  ),
+                ),
+                const SizedBox(height: ToungularSpace.xs),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _busy ? null : _playRecording,
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: const Text('Play'),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _busy ? null : _discard,
+                      child: const Text('Discard'),
+                    ),
+                    if (!_fixedPrompt)
+                      TextButton(
+                        onPressed: _busy ? null : _nextPrompt,
+                        child: const Text('New prompt'),
+                      ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: ToungularSpace.m),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Icon(
+                    Icons.lock_outline_rounded,
+                    size: 16,
+                    color: ToungularColor.mutedInk,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Audio is sent only when you tap Check my answer.',
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(fontSize: 13),
+                    ),
+                  ),
+                ],
               ),
-              TextButton(onPressed: _busy ? null : _discard, child: const Text('Discard and try another prompt')),
+              if (_error != null) ...<Widget>[
+                const SizedBox(height: ToungularSpace.s),
+                Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+              if (_exposureMessage != null) ...<Widget>[
+                const SizedBox(height: ToungularSpace.s),
+                Text(
+                  _exposureMessage!,
+                  style: const TextStyle(color: ToungularColor.leaf),
+                ),
+              ],
             ],
-            if (_error != null) ...<Widget>[
-              const SizedBox(height: ToungularSpace.s),
-              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-            ],
-            if (_exposureMessage != null) ...<Widget>[
-              const SizedBox(height: ToungularSpace.s),
-              Text(_exposureMessage!, style: const TextStyle(color: ToungularColor.leaf)),
-            ],
-            if (_feedback != null) ...<Widget>[
-              const SizedBox(height: ToungularSpace.l),
-              _FeedbackCard(feedback: _feedback!, affective: _affective),
-              const SizedBox(height: ToungularSpace.s),
-              if (widget.ieltsAttemptId != null)
-                FilledButton(onPressed: () => context.pop(true), child: const Text('Return to IELTS practice'))
-              else if (_isExposure)
-                FilledButton(onPressed: () => context.pop(), child: const Text('Back to comfort path'))
-              else
-                OutlinedButton(onPressed: () => context.go('/speaking/history'), child: const Text('View speaking history')),
-            ],
-          ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecordButton extends StatelessWidget {
+  const _RecordButton({
+    required this.recording,
+    required this.reducedMotion,
+    required this.pulse,
+    required this.label,
+    this.onTap,
+  });
+
+  final bool recording;
+  final bool reducedMotion;
+  final AnimationController pulse;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final core = Container(
+      width: 96,
+      height: 96,
+      decoration: BoxDecoration(
+        color: recording ? ToungularColor.coral : ToungularColor.leaf,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(
+        recording ? Icons.stop_rounded : Icons.mic_rounded,
+        size: 42,
+        color: Colors.white,
+      ),
+    );
+
+    return Semantics(
+      button: onTap != null,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Opacity(
+          opacity: onTap == null ? .6 : 1,
+          child: Container(
+            width: 112,
+            height: 112,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: recording
+                    ? ToungularColor.coral.withValues(alpha: .45)
+                    : ToungularColor.sand,
+                width: 3,
+              ),
+            ),
+            child: recording && !reducedMotion
+                ? ScaleTransition(
+                    scale: Tween<double>(begin: .96, end: 1.04).animate(
+                      CurvedAnimation(parent: pulse, curve: Curves.easeInOut),
+                    ),
+                    child: core,
+                  )
+                : core,
+          ),
         ),
       ),
     );
   }
 }
 
-class _FeedbackCard extends StatelessWidget {
-  const _FeedbackCard({required this.feedback, this.affective});
+class _LevelMeter extends StatelessWidget {
+  const _LevelMeter({required this.level});
 
-  final SpeakingFeedback feedback;
-  final AffectiveAssessmentResult? affective;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(ToungularSpace.l),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text('Practice reflection', style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: ToungularSpace.xs),
-              Text(feedback.label),
-              if (affective != null) ...<Widget>[
-                const SizedBox(height: ToungularSpace.m),
-                Container(
-                  padding: const EdgeInsets.all(ToungularSpace.m),
-                  decoration: BoxDecoration(
-                    color: affective!.anxietyState == 'calm'
-                        ? const Color(0xFFE8F5E9)
-                        : const Color(0xFFFFF3E0),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: <Widget>[
-                      Icon(
-                        affective!.anxietyState == 'calm' ? Icons.spa_outlined : Icons.psychology_outlined,
-                        color: affective!.anxietyState == 'calm' ? ToungularColor.leaf : Colors.orange.shade800,
-                      ),
-                      const SizedBox(width: ToungularSpace.s),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              affective!.anxietyState == 'calm' ? 'Composed Delivery' : 'Mindful Speaking',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: affective!.anxietyState == 'calm' ? ToungularColor.leaf : Colors.orange.shade900,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              affective!.shouldScaffold
-                                  ? 'Take natural pauses without worry. Pace and confidence improve with every small step.'
-                                  : 'Confidence score: ${(affective!.confidenceScore * 100).round()}%. Great steady composure!',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: ToungularSpace.m),
-              Wrap(
-                spacing: ToungularSpace.xs,
-                runSpacing: ToungularSpace.xs,
-                children: <Widget>[
-                  Chip(label: Text('${feedback.wordCount} words')),
-                  Chip(label: Text('${feedback.wordsPerMinute} wpm')),
-                  Chip(label: Text('${feedback.articulationRate} articulation')),
-                  Chip(label: Text('${(feedback.vocabularyVariety * 100).round()}% unique')),
-                  Chip(label: Text('${feedback.fillerCount} fillers')),
-                  Chip(label: Text('${feedback.pauseCount} pauses')),
-                ],
-              ),
-              const SizedBox(height: ToungularSpace.m),
-              if (feedback.fillers.isNotEmpty)
-                Text('Fillers: ${feedback.fillers.map((filler) => '${filler.word} ×${filler.count}').join(', ')}'),
-              Text(feedback.pauseNote),
-              const SizedBox(height: ToungularSpace.m),
-              Text('Pace trend', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: ToungularSpace.xs),
-              if (feedback.wpmTrend.isNotEmpty) ...<Widget>[
-                _TrendBars(points: feedback.wpmTrend),
-                const SizedBox(height: ToungularSpace.xs),
-              ],
-              Text(feedback.wpmTrendMessage),
-              const SizedBox(height: ToungularSpace.s),
-              Text(feedback.pronunciationMessage),
-              const SizedBox(height: ToungularSpace.m),
-              Text('Try next', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: ToungularSpace.xs),
-              Text(feedback.nextStep),
-            ],
-          ),
-        ),
-      );
-}
-
-class _TrendBars extends StatelessWidget {
-  const _TrendBars({required this.points});
-
-  final List<int> points;
+  final double level;
 
   @override
   Widget build(BuildContext context) {
-    final maxValue = points.fold<int>(0, (max, value) => value > max ? value : max);
-    return SizedBox(
-      height: 76,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: points
-            .map((point) => Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: <Widget>[
-                        Text('$point', style: Theme.of(context).textTheme.bodySmall),
-                        const SizedBox(height: 2),
-                        Container(
-                          height: maxValue == 0 ? 8 : (point / maxValue * 46).clamp(8, 46).toDouble(),
-                          decoration: BoxDecoration(
-                            color: ToungularColor.leaf,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                        ),
-                      ],
-                    ),
+    return Semantics(
+      excludeSemantics: true,
+      child: SizedBox(
+        height: 56,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: List<Widget>.generate(_meterBars, (index) {
+            // Deterministic wave pattern scaled by the current level: no jitter.
+            final wave = math.sin((index + 1) * 0.7) * .5 + .5;
+            final height = 6.0 + wave * level * 46.0;
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Container(
+                  height: height,
+                  decoration: BoxDecoration(
+                    color: level > 0
+                        ? ToungularColor.leaf
+                        : ToungularColor.sand,
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                ))
-            .toList(growable: false),
+                ),
+              ),
+            );
+          }),
+        ),
       ),
     );
   }

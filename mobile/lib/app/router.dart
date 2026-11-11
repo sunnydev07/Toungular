@@ -12,7 +12,6 @@ import '../features/content/content_screen.dart';
 import '../features/courses/courses_screen.dart';
 import '../features/courses/lesson_screen.dart';
 import '../features/exposure/exposure_screen.dart';
-import '../features/home/home_screen.dart';
 import '../features/ielts/ielts_repository.dart';
 import '../features/ielts/ielts_screen.dart';
 import '../features/mastery/mastery_screen.dart';
@@ -25,21 +24,39 @@ import '../features/speaking/speaking_history_screen.dart';
 import '../features/speaking/speaking_screen.dart';
 import '../features/vocabulary/vocabulary_screen.dart';
 
+import 'home_shell.dart';
+
 final GoRouter appRouter = GoRouter(
   initialLocation: '/',
   routes: <RouteBase>[
     GoRoute(path: '/', builder: (context, state) => const AppEntryScreen()),
     GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
-    GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
-    GoRoute(path: '/account', builder: (context, state) => const AccountScreen()),
-    GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
-    GoRoute(path: '/courses', builder: (context, state) => const CoursesScreen()),
+    GoRoute(
+      path: '/onboarding',
+      builder: (context, state) => const OnboardingScreen(),
+    ),
+    GoRoute(
+      path: '/account',
+      builder: (context, state) => const AccountScreen(),
+    ),
+    GoRoute(path: '/home', builder: (context, state) => const HomeShell()),
+    GoRoute(
+      path: '/courses',
+      builder: (context, state) => const CoursesScreen(),
+    ),
     GoRoute(
       path: '/lessons/:lessonId',
-      builder: (context, state) => LessonScreen(lessonId: state.pathParameters['lessonId']!),
+      builder: (context, state) =>
+          LessonScreen(lessonId: state.pathParameters['lessonId']!),
     ),
-    GoRoute(path: '/vocabulary', builder: (context, state) => const VocabularyScreen()),
-    GoRoute(path: '/exposure', builder: (context, state) => const ExposureScreen()),
+    GoRoute(
+      path: '/vocabulary',
+      builder: (context, state) => const VocabularyScreen(),
+    ),
+    GoRoute(
+      path: '/exposure',
+      builder: (context, state) => const ExposureScreen(),
+    ),
     GoRoute(
       path: '/speaking',
       builder: (context, state) => SpeakingScreen(
@@ -47,11 +64,19 @@ final GoRouter appRouter = GoRouter(
         type: state.uri.queryParameters['type'] ?? 'prompt',
       ),
     ),
-    GoRoute(path: '/speaking/history', builder: (context, state) => const SpeakingHistoryScreen()),
-    GoRoute(path: '/coach', builder: (context, state) => const CoachScenariosScreen()),
+    GoRoute(
+      path: '/speaking/history',
+      builder: (context, state) => const SpeakingHistoryScreen(),
+    ),
+    GoRoute(
+      path: '/coach',
+      builder: (context, state) => const CoachScenariosScreen(),
+    ),
     GoRoute(
       path: '/coach/:conversationId',
-      builder: (context, state) => CoachConversationScreen(conversationId: state.pathParameters['conversationId']!),
+      builder: (context, state) => CoachConversationScreen(
+        conversationId: state.pathParameters['conversationId']!,
+      ),
     ),
     GoRoute(path: '/ielts', builder: (context, state) => const IeltsScreen()),
     GoRoute(
@@ -67,25 +92,46 @@ final GoRouter appRouter = GoRouter(
         );
       },
     ),
-    GoRoute(path: '/progress', builder: (context, state) => const ProgressScreen()),
-    GoRoute(path: '/plus', builder: (context, state) => const ToungularPlusScreen()),
-    GoRoute(path: '/placement', builder: (context, state) => const PlacementScreen()),
+    GoRoute(
+      path: '/progress',
+      builder: (context, state) => const ProgressScreen(),
+    ),
+    GoRoute(
+      path: '/plus',
+      builder: (context, state) => const ToungularPlusScreen(),
+    ),
+    GoRoute(
+      path: '/placement',
+      builder: (context, state) => const PlacementScreen(),
+    ),
     GoRoute(path: '/shadow', builder: (context, state) => const ShadowScreen()),
     GoRoute(
       path: '/shadow/:passageId',
-      builder: (context, state) => ShadowScreen(passageId: state.pathParameters['passageId']),
+      builder: (context, state) =>
+          ShadowScreen(passageId: state.pathParameters['passageId']),
     ),
-    GoRoute(path: '/content', builder: (context, state) => const ContentScreen()),
+    GoRoute(
+      path: '/content',
+      builder: (context, state) => const ContentScreen(),
+    ),
     GoRoute(
       path: '/content/:articleId',
-      builder: (context, state) => ContentScreen(initialArticleId: state.pathParameters['articleId']),
+      builder: (context, state) =>
+          ContentScreen(initialArticleId: state.pathParameters['articleId']),
     ),
-    GoRoute(path: '/pronunciation', builder: (context, state) => const PronunciationLabScreen()),
+    GoRoute(
+      path: '/pronunciation',
+      builder: (context, state) => const PronunciationLabScreen(),
+    ),
     GoRoute(
       path: '/pronunciation/:pairId',
-      builder: (context, state) => PronunciationLabScreen(initialPairId: state.pathParameters['pairId']),
+      builder: (context, state) =>
+          PronunciationLabScreen(initialPairId: state.pathParameters['pairId']),
     ),
-    GoRoute(path: '/mastery', builder: (context, state) => const MasteryScreen()),
+    GoRoute(
+      path: '/mastery',
+      builder: (context, state) => const MasteryScreen(),
+    ),
   ],
 );
 
@@ -100,7 +146,6 @@ class AppEntryScreen extends ConsumerWidget {
     }
     if (!session.isSignedIn) return const AuthScreen();
     if (session.requiresOnboarding) return const OnboardingScreen();
-    return const HomeScreen();
+    return const HomeShell();
   }
 }
-

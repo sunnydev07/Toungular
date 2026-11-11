@@ -9,7 +9,7 @@ final sessionStoreProvider = Provider<SessionStore>((ref) => SessionStore());
 
 class SessionStore {
   SessionStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   static const _sessionKey = 'toungular.session.v1';
   final FlutterSecureStorage _storage;
@@ -31,8 +31,7 @@ class SessionStore {
   Future<void> writeSession(LearnerSession session) =>
       _storage.write(key: _sessionKey, value: jsonEncode(session.toJson()));
 
-  Future<String?> readAccessToken() async =>
-      (await readSession())?.accessToken;
+  Future<String?> readAccessToken() async => (await readSession())?.accessToken;
 
   Future<void> updateProfile(LearnerProfile profile) async {
     final session = await readSession();

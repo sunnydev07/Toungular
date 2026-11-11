@@ -17,7 +17,9 @@ class ToungularHomeAdBanner extends ConsumerWidget {
     if (!AppEnvironment.adsEnabled) return const SizedBox.shrink();
     final voiceActive = ref.watch(voiceActivityProvider);
     final entitlement = ref.watch(entitlementSnapshotProvider);
-    if (entitlement.isLoading || entitlement.hasError || entitlement.asData?.value.premium == true) {
+    if (entitlement.isLoading ||
+        entitlement.hasError ||
+        entitlement.asData?.value.premium == true) {
       return const SizedBox.shrink();
     }
     return AnimatedBuilder(
@@ -63,10 +65,11 @@ class _LoadedBannerState extends State<_LoadedBanner> {
         },
         onAdFailedToLoad: (ad, _) {
           ad.dispose();
-          if (mounted) setState(() {
-            _ad = null;
-            _loaded = false;
-          });
+          if (mounted)
+            setState(() {
+              _ad = null;
+              _loaded = false;
+            });
         },
       ),
     );
@@ -88,7 +91,11 @@ class _LoadedBannerState extends State<_LoadedBanner> {
       padding: const EdgeInsets.symmetric(vertical: ToungularSpace.s),
       child: Semantics(
         label: 'Advertisement',
-        child: SizedBox(width: ad.size.width.toDouble(), height: ad.size.height.toDouble(), child: AdWidget(ad: ad)),
+        child: SizedBox(
+          width: ad.size.width.toDouble(),
+          height: ad.size.height.toDouble(),
+          child: AdWidget(ad: ad),
+        ),
       ),
     );
   }

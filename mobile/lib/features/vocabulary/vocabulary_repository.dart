@@ -8,7 +8,10 @@ import '../../core/storage/session_store.dart';
 import '../../shared/models/learning_models.dart';
 
 final vocabularyRepositoryProvider = Provider<VocabularyRepository>(
-  (ref) => VocabularyRepository(ref.watch(apiClientProvider), ref.watch(sessionStoreProvider)),
+  (ref) => VocabularyRepository(
+    ref.watch(apiClientProvider),
+    ref.watch(sessionStoreProvider),
+  ),
 );
 
 class VocabularyRepository {
@@ -31,7 +34,10 @@ class VocabularyRepository {
             .toList(growable: false),
       );
       final preferences = await SharedPreferences.getInstance();
-      await preferences.setString(key, jsonEncode(items.map((item) => item.toJson()).toList()));
+      await preferences.setString(
+        key,
+        jsonEncode(items.map((item) => item.toJson()).toList()),
+      );
       return items;
     } on ApiException catch (error) {
       if (error.isUnauthorized) rethrow;
@@ -54,9 +60,16 @@ class VocabularyRepository {
 
   Future<void> submitReview(String itemId, String grade, {String? mode}) async {
     if (!const <String>{'again', 'hard', 'good', 'easy'}.contains(grade)) {
-      throw ArgumentError.value(grade, 'grade', 'Unknown vocabulary review grade.');
+      throw ArgumentError.value(
+        grade,
+        'grade',
+        'Unknown vocabulary review grade.',
+      );
     }
-    final payload = <String, Object?>{'grade': grade, if (mode != null) 'mode': mode};
+    final payload = <String, Object?>{
+      'grade': grade,
+      if (mode != null) 'mode': mode,
+    };
     try {
       await _flushPending();
       await _api.post<Object?>(
@@ -65,7 +78,9 @@ class VocabularyRepository {
         (json) => json,
       );
     } on ApiException catch (error) {
-      if (error.failure != ApiFailure.network && error.failure != ApiFailure.server) rethrow;
+      if (error.failure != ApiFailure.network &&
+          error.failure != ApiFailure.server)
+        rethrow;
       await _enqueue(<String, Object?>{'itemId': itemId, ...payload});
     }
     await _removeFromCachedDue(itemId);
@@ -78,19 +93,14 @@ class VocabularyRepository {
     required String example,
     required String level,
     int? tier,
-  }) =>
-      _api.post<VocabularyReview>(
-        '/v1/vocabulary',
-        <String, Object?>{
-          'word': word,
-          'partOfSpeech': partOfSpeech,
-          'definition': definition,
-          'example': example,
-          'level': level,
-          if (tier != null) 'tier': tier,
-        },
-        VocabularyReview.fromJson,
-      );
+  }) => _api.post<VocabularyReview>('/v1/vocabulary', <String, Object?>{
+    'word': word,
+    'partOfSpeech': partOfSpeech,
+    'definition': definition,
+    'example': example,
+    'level': level,
+    if (tier != null) 'tier': tier,
+  }, VocabularyReview.fromJson);
 
   Future<void> _flushPending() async {
     final preferences = await SharedPreferences.getInstance();
@@ -136,7 +146,9 @@ class VocabularyRepository {
     final preferences = await SharedPreferences.getInstance();
     final queueKey = await _actionQueueKey();
     final encoded = preferences.getString(queueKey);
-    final actions = encoded == null ? <dynamic>[] : jsonDecode(encoded) as List<dynamic>;
+    final actions = encoded == null
+        ? <dynamic>[]
+        : jsonDecode(encoded) as List<dynamic>;
     actions.add(action);
     await preferences.setString(queueKey, jsonEncode(actions));
   }

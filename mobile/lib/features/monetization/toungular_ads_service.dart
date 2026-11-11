@@ -23,7 +23,11 @@ class ToungularAdsService extends ChangeNotifier {
       ConsentInformation.instance.requestConsentInfoUpdate(
         ConsentRequestParameters(),
         () {
-          unawaited(ConsentForm.loadAndShowConsentFormIfRequired((_) => _refreshConsent()));
+          unawaited(
+            ConsentForm.loadAndShowConsentFormIfRequired(
+              (_) => _refreshConsent(),
+            ),
+          );
           unawaited(_refreshConsent());
         },
         (_) => _refreshConsent(),
@@ -43,7 +47,10 @@ class ToungularAdsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> showRewardedBonus({required bool isPremium, required bool voiceActive}) async {
+  Future<bool> showRewardedBonus({
+    required bool isPremium,
+    required bool voiceActive,
+  }) async {
     const policy = AdPlacementPolicy();
     if (!policy.canShow(
       AdPlacement.rewardedLessonUnlock,

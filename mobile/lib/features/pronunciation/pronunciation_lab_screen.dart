@@ -19,10 +19,12 @@ class PronunciationLabScreen extends ConsumerStatefulWidget {
   final String? initialPairId;
 
   @override
-  ConsumerState<PronunciationLabScreen> createState() => _PronunciationLabScreenState();
+  ConsumerState<PronunciationLabScreen> createState() =>
+      _PronunciationLabScreenState();
 }
 
-class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen> {
+class _PronunciationLabScreenState
+    extends ConsumerState<PronunciationLabScreen> {
   final _recorder = AudioRecorder();
   final _audioPlayer = AudioPlayer();
   final _manualTranscriptController = TextEditingController();
@@ -97,7 +99,9 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
     setState(() => _playingAudio = true);
 
     try {
-      final filePath = await ref.read(voiceRepositoryProvider).synthesizeToFile(text);
+      final filePath = await ref
+          .read(voiceRepositoryProvider)
+          .synthesizeToFile(text);
       await _audioPlayer.setFilePath(filePath);
       await _audioPlayer.play();
     } catch (_) {
@@ -110,9 +114,14 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
   Future<void> _startRecording() async {
     try {
       if (await _recorder.hasPermission()) {
-        final path = '${Directory.systemTemp.path}${Platform.pathSeparator}phoneme_drill_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        final path =
+            '${Directory.systemTemp.path}${Platform.pathSeparator}phoneme_drill_${DateTime.now().millisecondsSinceEpoch}.m4a';
         await _recorder.start(
-          const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000, sampleRate: 44100),
+          const RecordConfig(
+            encoder: AudioEncoder.aacLc,
+            bitRate: 128000,
+            sampleRate: 44100,
+          ),
           path: path,
         );
         setState(() {
@@ -142,7 +151,9 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
       if (_sttAvailable && _recordingPath != null) {
         final file = File(_recordingPath!);
         if (await file.exists()) {
-          final transcribed = await ref.read(voiceRepositoryProvider).transcribe(file);
+          final transcribed = await ref
+              .read(voiceRepositoryProvider)
+              .transcribe(file);
           if (transcribed.isNotEmpty) {
             transcript = transcribed;
             _manualTranscriptController.text = transcript;
@@ -284,7 +295,9 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
                   label: Text(
                     p.phoneticContrast,
                     style: TextStyle(
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                       color: isSelected ? Colors.white : ToungularColor.ink,
                     ),
                   ),
@@ -316,7 +329,10 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: ToungularColor.mist,
                           borderRadius: BorderRadius.circular(12),
@@ -341,7 +357,11 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
                         ),
                       ),
                       const Spacer(),
-                      const Icon(Icons.volume_up_outlined, color: ToungularColor.leaf, size: 20),
+                      const Icon(
+                        Icons.volume_up_outlined,
+                        color: ToungularColor.leaf,
+                        size: 20,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -394,11 +414,17 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
                 children: [
                   Row(
                     children: const [
-                      Icon(Icons.psychology_outlined, color: ToungularColor.leaf),
+                      Icon(
+                        Icons.psychology_outlined,
+                        color: ToungularColor.leaf,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'Articulatory Biomechanics',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ],
                   ),
@@ -443,15 +469,26 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.menu_book_outlined, color: ToungularColor.leaf, size: 20),
+                      const Icon(
+                        Icons.menu_book_outlined,
+                        color: ToungularColor.leaf,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       const Text(
                         'Sentence Drill',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                       const Spacer(),
                       IconButton(
-                        icon: const Icon(Icons.volume_up, size: 20, color: ToungularColor.leaf),
+                        icon: const Icon(
+                          Icons.volume_up,
+                          size: 20,
+                          color: ToungularColor.leaf,
+                        ),
                         tooltip: 'Listen to sentence drill',
                         onPressed: () => _playSample(pair.sentenceDrill),
                       ),
@@ -481,12 +518,18 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
                 children: [
                   Text(
                     'Practice Target: "${targetWord.word}" (${targetWord.ipa})',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   const Text(
                     'Speak or verify the word into the microphone to measure phonetic clarity and earn Acoustic XP.',
-                    style: TextStyle(color: ToungularColor.mutedInk, fontSize: 13),
+                    style: TextStyle(
+                      color: ToungularColor.mutedInk,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 16),
 
@@ -510,10 +553,17 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
                       children: [
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: _recording ? ToungularColor.coral : ToungularColor.leaf,
+                            backgroundColor: _recording
+                                ? ToungularColor.coral
+                                : ToungularColor.leaf,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
                           ),
                           icon: Icon(_recording ? Icons.stop : Icons.mic),
                           label: Text(
@@ -522,13 +572,18 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
                           ),
                           onPressed: _evaluating
                               ? null
-                              : (_recording ? _stopAndAnalyze : _startRecording),
+                              : (_recording
+                                    ? _stopAndAnalyze
+                                    : _startRecording),
                         ),
                         if (_recording) ...[
                           const SizedBox(height: 8),
                           const Text(
                             'Listening... Speak clearly.',
-                            style: TextStyle(color: ToungularColor.coral, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: ToungularColor.coral,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ],
@@ -542,7 +597,10 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
                         children: [
                           CircularProgressIndicator(),
                           SizedBox(height: 8),
-                          Text('Analyzing phonetic acoustic contours...', style: TextStyle(fontSize: 13)),
+                          Text(
+                            'Analyzing phonetic acoustic contours...',
+                            style: TextStyle(fontSize: 13),
+                          ),
                         ],
                       ),
                     ),
@@ -550,7 +608,10 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
 
                   if (_error != null) ...[
                     const SizedBox(height: 12),
-                    Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+                    Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.red, fontSize: 13),
+                    ),
                   ],
                 ],
               ),
@@ -583,7 +644,9 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? ToungularColor.lime.withValues(alpha: 0.25) : Colors.white,
+          color: isSelected
+              ? ToungularColor.lime.withValues(alpha: 0.25)
+              : Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected ? ToungularColor.leaf : ToungularColor.sand,
@@ -600,29 +663,46 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: isSelected ? ToungularColor.leaf : ToungularColor.mutedInk,
+                    color: isSelected
+                        ? ToungularColor.leaf
+                        : ToungularColor.mutedInk,
                   ),
                 ),
                 const Spacer(),
                 if (isSelected)
-                  const Icon(Icons.check_circle, size: 16, color: ToungularColor.leaf),
+                  const Icon(
+                    Icons.check_circle,
+                    size: 16,
+                    color: ToungularColor.leaf,
+                  ),
               ],
             ),
             const SizedBox(height: 6),
             Text(
               wordItem.word,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: ToungularColor.ink),
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: ToungularColor.ink,
+              ),
             ),
             Text(
               wordItem.ipa,
-              style: const TextStyle(fontSize: 14, color: ToungularColor.leaf, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 14,
+                color: ToungularColor.leaf,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               wordItem.meaning,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: ToungularColor.mutedInk),
+              style: const TextStyle(
+                fontSize: 12,
+                color: ToungularColor.mutedInk,
+              ),
             ),
             const SizedBox(height: 8),
             InkWell(
@@ -632,7 +712,14 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
                 children: const [
                   Icon(Icons.volume_up, size: 16, color: ToungularColor.leaf),
                   SizedBox(width: 4),
-                  Text('Listen', style: TextStyle(fontSize: 12, color: ToungularColor.leaf, fontWeight: FontWeight.bold)),
+                  Text(
+                    'Listen',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: ToungularColor.leaf,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -672,7 +759,11 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
               const SizedBox(height: 2),
               Text(
                 detail,
-                style: const TextStyle(fontSize: 13, color: ToungularColor.mutedInk, height: 1.35),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: ToungularColor.mutedInk,
+                  height: 1.35,
+                ),
               ),
             ],
           ),
@@ -706,7 +797,9 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: isAccurate ? ToungularColor.leaf : ToungularColor.coral,
+                  backgroundColor: isAccurate
+                      ? ToungularColor.leaf
+                      : ToungularColor.coral,
                   radius: 20,
                   child: Icon(
                     isAccurate ? Icons.check : Icons.priority_high,
@@ -719,14 +812,23 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isAccurate ? 'Target Phoneme Achieved!' : (isConfused ? 'Phoneme Confusion Detected' : 'Needs Polish'),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      isAccurate
+                          ? 'Target Phoneme Achieved!'
+                          : (isConfused
+                                ? 'Phoneme Confusion Detected'
+                                : 'Needs Polish'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                     Text(
                       'Accuracy: ${result.accuracyScore.toInt()}%',
                       style: TextStyle(
                         fontSize: 13,
-                        color: isAccurate ? ToungularColor.leaf : ToungularColor.coral,
+                        color: isAccurate
+                            ? ToungularColor.leaf
+                            : ToungularColor.coral,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -734,7 +836,10 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: ToungularColor.lime,
                     borderRadius: BorderRadius.circular(12),
@@ -753,7 +858,11 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
             const Divider(height: 20),
             Text(
               result.phonemeFeedback,
-              style: const TextStyle(fontSize: 14, color: ToungularColor.ink, height: 1.35),
+              style: const TextStyle(
+                fontSize: 14,
+                color: ToungularColor.ink,
+                height: 1.35,
+              ),
             ),
             const SizedBox(height: 10),
             Container(
@@ -765,12 +874,19 @@ class _PronunciationLabScreenState extends ConsumerState<PronunciationLabScreen>
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.lightbulb_outline, size: 18, color: ToungularColor.leaf),
+                  const Icon(
+                    Icons.lightbulb_outline,
+                    size: 18,
+                    color: ToungularColor.leaf,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Biomechanics Tip: ${result.articulatoryTip}',
-                      style: const TextStyle(fontSize: 12, color: ToungularColor.mutedInk),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: ToungularColor.mutedInk,
+                      ),
                     ),
                   ),
                 ],

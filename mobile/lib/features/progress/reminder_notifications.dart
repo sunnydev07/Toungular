@@ -7,10 +7,14 @@ class ReminderNotifications {
   ReminderNotifications._();
 
   static final ReminderNotifications instance = ReminderNotifications._();
-  final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _notifications =
+      FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
-  Future<bool> configure({required String? time, required List<int> days}) async {
+  Future<bool> configure({
+    required String? time,
+    required List<int> days,
+  }) async {
     try {
       await _initialize();
       if (days.isEmpty || time == null) {
@@ -19,7 +23,9 @@ class ReminderNotifications {
       }
       await _notifications.cancelAll();
       final permission = await _notifications
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.requestNotificationsPermission();
       if (permission == false) return false;
 
@@ -34,10 +40,24 @@ class ReminderNotifications {
         if (sundayBasedDay < 0 || sundayBasedDay > 6) continue;
         final weekday = sundayBasedDay == 0 ? DateTime.sunday : sundayBasedDay;
         var daysUntil = (weekday - now.weekday + 7) % 7;
-        var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day + daysUntil, hour, minute);
+        var scheduled = tz.TZDateTime(
+          tz.local,
+          now.year,
+          now.month,
+          now.day + daysUntil,
+          hour,
+          minute,
+        );
         if (!scheduled.isAfter(now)) {
           daysUntil += 7;
-          scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day + daysUntil, hour, minute);
+          scheduled = tz.TZDateTime(
+            tz.local,
+            now.year,
+            now.month,
+            now.day + daysUntil,
+            hour,
+            minute,
+          );
         }
         await _notifications.zonedSchedule(
           id: 2400 + sundayBasedDay,
@@ -48,7 +68,8 @@ class ReminderNotifications {
             android: AndroidNotificationDetails(
               'toungular_daily_practice',
               'Daily practice',
-              channelDescription: 'Reminders chosen by the learner to practice English.',
+              channelDescription:
+                  'Reminders chosen by the learner to practice English.',
               importance: Importance.defaultImportance,
               priority: Priority.defaultPriority,
             ),

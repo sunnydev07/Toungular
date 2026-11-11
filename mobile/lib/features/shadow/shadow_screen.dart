@@ -84,9 +84,17 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
         _loading = false;
       });
     } on ApiException catch (error) {
-      if (mounted) setState(() { _error = error.message; _loading = false; });
+      if (mounted)
+        setState(() {
+          _error = error.message;
+          _loading = false;
+        });
     } catch (_) {
-      if (mounted) setState(() { _error = 'Could not load shadowing passages.'; _loading = false; });
+      if (mounted)
+        setState(() {
+          _error = 'Could not load shadowing passages.';
+          _loading = false;
+        });
     }
   }
 
@@ -101,7 +109,9 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
 
     try {
       if (_modelAudioPath == null || !await File(_modelAudioPath!).exists()) {
-        final path = await ref.read(voiceRepositoryProvider).synthesizeToFile(passage.text);
+        final path = await ref
+            .read(voiceRepositoryProvider)
+            .synthesizeToFile(passage.text);
         _modelAudioPath = path;
       }
       await _modelPlayer.setFilePath(_modelAudioPath!);
@@ -110,9 +120,16 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Model audio preview is unavailable right now.');
+      if (mounted)
+        setState(
+          () => _error = 'Model audio preview is unavailable right now.',
+        );
     } finally {
-      if (mounted) setState(() { _modelPlaying = false; _busy = false; });
+      if (mounted)
+        setState(() {
+          _modelPlaying = false;
+          _busy = false;
+        });
     }
   }
 
@@ -130,12 +147,19 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
     try {
       final allowed = await _recorder.hasPermission();
       if (!allowed) {
-        setState(() => _error = 'Microphone permission is required for shadowing practice.');
+        setState(
+          () => _error =
+              'Microphone permission is required for shadowing practice.',
+        );
         return;
       }
 
-      final path = '${Directory.systemTemp.path}${Platform.pathSeparator}toungular-shadow-${passage.id}.m4a';
-      await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+      final path =
+          '${Directory.systemTemp.path}${Platform.pathSeparator}toungular-shadow-${passage.id}.m4a';
+      await _recorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: path,
+      );
       _userAudioPath = path;
       _transcriptController.clear();
       _recording = true;
@@ -186,12 +210,16 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
 
     setState(() => _transcribing = true);
     try {
-      final text = await ref.read(voiceRepositoryProvider).transcribe(File(path));
+      final text = await ref
+          .read(voiceRepositoryProvider)
+          .transcribe(File(path));
       if (mounted && text.isNotEmpty) {
         setState(() => _transcriptController.text = text);
       }
     } catch (_) {
-      if (mounted && _currentPassage != null && _transcriptController.text.isEmpty) {
+      if (mounted &&
+          _currentPassage != null &&
+          _transcriptController.text.isEmpty) {
         setState(() => _transcriptController.text = _currentPassage!.text);
       }
     } finally {
@@ -218,7 +246,10 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
     final transcript = _transcriptController.text.trim();
     if (passage == null) return;
     if (transcript.isEmpty) {
-      setState(() => _error = 'Please enter or confirm the words you spoke before analyzing.');
+      setState(
+        () => _error =
+            'Please enter or confirm the words you spoke before analyzing.',
+      );
       return;
     }
 
@@ -229,11 +260,13 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
 
     try {
       final duration = _seconds > 0 ? _seconds : passage.durationEstimateSec;
-      final result = await ref.read(shadowRepositoryProvider).analyze(
-        passageId: passage.id,
-        durationSeconds: duration,
-        transcript: transcript,
-      );
+      final result = await ref
+          .read(shadowRepositoryProvider)
+          .analyze(
+            passageId: passage.id,
+            durationSeconds: duration,
+            transcript: transcript,
+          );
 
       // Record exposure session for Level 5
       try {
@@ -244,7 +277,8 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Shadow analysis could not be completed.');
+      if (mounted)
+        setState(() => _error = 'Shadow analysis could not be completed.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -266,7 +300,7 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
         actions: <Widget>[
           IconButton(
             tooltip: 'Comfort path',
-            onPressed: () => context.go('/exposure'),
+            onPressed: () => context.push('/exposure'),
             icon: const Icon(Icons.shield_outlined),
           ),
         ],
@@ -275,19 +309,26 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
         child: ListView(
           padding: const EdgeInsets.all(ToungularSpace.l),
           children: <Widget>[
-            Text('Shadow the Native Model', style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Shadow the Native Model',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: ToungularSpace.xs),
-            const Text('Listen to the rhythm, then speak simultaneously to calibrate your speech rate and natural chunking.'),
+            const Text(
+              'Listen to the rhythm, then speak simultaneously to calibrate your speech rate and natural chunking.',
+            ),
             const SizedBox(height: ToungularSpace.l),
             if (_passages.length > 1)
               DropdownButtonFormField<String>(
                 initialValue: passage?.id,
                 decoration: const InputDecoration(labelText: 'Choose Passage'),
                 items: _passages
-                    .map((p) => DropdownMenuItem(
-                          value: p.id,
-                          child: Text('${p.title} (${p.level.toUpperCase()})'),
-                        ))
+                    .map(
+                      (p) => DropdownMenuItem(
+                        value: p.id,
+                        child: Text('${p.title} (${p.level.toUpperCase()})'),
+                      ),
+                    )
                     .toList(growable: false),
                 onChanged: (id) {
                   if (id == null) return;
@@ -317,15 +358,24 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
                         ],
                       ),
                       const SizedBox(height: ToungularSpace.s),
-                      Text('FOCUS: ${passage.focus}', style: const TextStyle(fontWeight: FontWeight.bold, color: ToungularColor.ink)),
+                      Text(
+                        'FOCUS: ${passage.focus}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: ToungularColor.ink,
+                        ),
+                      ),
                       const SizedBox(height: ToungularSpace.m),
-                      ...passage.chunks.map((chunk) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(
-                              chunk,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(height: 1.4),
-                            ),
-                          )),
+                      ...passage.chunks.map(
+                        (chunk) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Text(
+                            chunk,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(height: 1.4),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -336,8 +386,14 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _busy || _recording ? null : _playModelAudio,
-                      icon: Icon(_modelPlaying ? Icons.volume_up : Icons.play_circle_outline),
-                      label: Text(_modelPlaying ? 'Playing Model…' : '1. Listen to Model'),
+                      icon: Icon(
+                        _modelPlaying
+                            ? Icons.volume_up
+                            : Icons.play_circle_outline,
+                      ),
+                      label: Text(
+                        _modelPlaying ? 'Playing Model…' : '1. Listen to Model',
+                      ),
                     ),
                   ),
                 ],
@@ -350,10 +406,14 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
                       onPressed: _busy || _modelPlaying
                           ? null
                           : _recording
-                              ? _stopRecording
-                              : _startRecording,
+                          ? _stopRecording
+                          : _startRecording,
                       icon: Icon(_recording ? Icons.stop_circle : Icons.mic),
-                      label: Text(_recording ? 'Stop Shadowing (${_seconds}s)' : '2. Record Shadow Attempt'),
+                      label: Text(
+                        _recording
+                            ? 'Stop Shadowing (${_seconds}s)'
+                            : '2. Record Shadow Attempt',
+                      ),
                     ),
                   ),
                 ],
@@ -385,13 +445,22 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
                 FilledButton.icon(
                   onPressed: _busy || _transcribing ? null : _submitAnalysis,
                   icon: const Icon(Icons.analytics_outlined),
-                  label: Text(_transcribing ? 'Transcribing…' : _busy ? 'Evaluating…' : '3. Analyze Prosody & Tempo'),
+                  label: Text(
+                    _transcribing
+                        ? 'Transcribing…'
+                        : _busy
+                        ? 'Evaluating…'
+                        : '3. Analyze Prosody & Tempo',
+                  ),
                 ),
               ],
             ],
             if (_error != null) ...<Widget>[
               const SizedBox(height: ToungularSpace.m),
-              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ],
             if (_analysis != null) ...<Widget>[
               const SizedBox(height: ToungularSpace.l),
@@ -422,18 +491,28 @@ class _ShadowScorecard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                Text('Shadowing Scorecard', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  'Shadowing Scorecard',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: isHigh ? Colors.green.shade100 : Colors.orange.shade100,
+                    color: isHigh
+                        ? Colors.green.shade100
+                        : Colors.orange.shade100,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
                     '${analysis.overallScore} / 100',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: isHigh ? Colors.green.shade900 : Colors.orange.shade900,
+                      color: isHigh
+                          ? Colors.green.shade900
+                          : Colors.orange.shade900,
                     ),
                   ),
                 ),
@@ -463,11 +542,17 @@ class _ShadowScorecard extends StatelessWidget {
               ],
             ),
             const Divider(height: ToungularSpace.xl),
-            Text('Pacing Diagnosis', style: Theme.of(context).textTheme.labelLarge),
+            Text(
+              'Pacing Diagnosis',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
             const SizedBox(height: ToungularSpace.xs),
             Text(analysis.feedback.paceDiagnosis),
             const SizedBox(height: ToungularSpace.m),
-            Text('Prosody & Linking Tip', style: Theme.of(context).textTheme.labelLarge),
+            Text(
+              'Prosody & Linking Tip',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
             const SizedBox(height: ToungularSpace.xs),
             Text(analysis.feedback.prosodyTip),
             const SizedBox(height: ToungularSpace.m),
@@ -489,11 +574,14 @@ class _MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: <Widget>[
+      Text(label, style: Theme.of(context).textTheme.bodySmall),
+      const SizedBox(height: 2),
+      Text(
+        value,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      ),
+    ],
+  );
 }
