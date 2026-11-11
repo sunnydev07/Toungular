@@ -15,6 +15,17 @@ const environmentSchema = z.object({
     ),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   MOBILE_ORIGIN: z.string().url().default(DEFAULT_MOBILE_ORIGIN),
+  GOOGLE_TTS_API_KEY: z.string().min(8).optional(),
+  GOOGLE_API_KEY: z.string().min(8).optional(),
+  GEMINI_API_KEY: z.string().min(8).optional(),
+  GEMINI_MODEL: z.string().min(1).default('gemini-3.5-flash-lite'),
+  ELEVENLABS_API_KEY: z.string().min(8).optional(),
+  ELEVENLABS_VOICE_ID: z.string().min(1).optional(),
+  OPENAI_API_KEY: z.string().min(8).optional(),
+  DEEPGRAM_API_KEY: z.string().min(8).optional(),
+  OPENCODE_ZEN_API_KEY: z.string().min(8).optional(),
+  OPENCODE_ZEN_BASE_URL: z.string().url().default('https://api.opencode.ai/v1'),
+  VOICE_CACHE_DIR: z.string().min(1).default('storage/audio-cache'),
 });
 
 export type AppEnv = {
@@ -22,6 +33,16 @@ export type AppEnv = {
   databaseUrl: string;
   jwtSecret: string;
   mobileOrigin: string;
+  googleTtsApiKey: string | undefined;
+  googleApiKey: string | undefined;
+  geminiModel: string;
+  elevenLabsApiKey: string | undefined;
+  elevenLabsVoiceId: string | undefined;
+  openAiApiKey: string | undefined;
+  deepgramApiKey: string | undefined;
+  opencodeZenApiKey: string | undefined;
+  opencodeZenBaseUrl: string;
+  voiceCacheDir: string;
 };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
@@ -38,5 +59,15 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     databaseUrl: DATABASE_URL,
     jwtSecret: JWT_SECRET,
     mobileOrigin: MOBILE_ORIGIN,
+    googleTtsApiKey: parsed.data.GOOGLE_TTS_API_KEY,
+    googleApiKey: parsed.data.GOOGLE_API_KEY ?? parsed.data.GEMINI_API_KEY,
+    geminiModel: parsed.data.GEMINI_MODEL,
+    elevenLabsApiKey: parsed.data.ELEVENLABS_API_KEY,
+    elevenLabsVoiceId: parsed.data.ELEVENLABS_VOICE_ID,
+    openAiApiKey: parsed.data.OPENAI_API_KEY,
+    deepgramApiKey: parsed.data.DEEPGRAM_API_KEY,
+    opencodeZenApiKey: parsed.data.OPENCODE_ZEN_API_KEY,
+    opencodeZenBaseUrl: parsed.data.OPENCODE_ZEN_BASE_URL,
+    voiceCacheDir: parsed.data.VOICE_CACHE_DIR,
   };
 }

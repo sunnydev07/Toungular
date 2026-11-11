@@ -158,6 +158,28 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                       ]),
                     ),
                   ),
+                  const SizedBox(height: ToungularSpace.s),
+                  Card(
+                    color: ToungularColor.mist,
+                    child: Padding(
+                      padding: const EdgeInsets.all(ToungularSpace.m),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+                        Text('Pace trend', style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: ToungularSpace.xs),
+                        if (progress.fluencyTrend.isEmpty)
+                          const Text('Complete speaking sessions to build a words-per-minute trend.')
+                        else ...<Widget>[
+                          Text('${progress.fluencyTrend.length} recent session${progress.fluencyTrend.length == 1 ? '' : 's'} · last ${progress.fluencyTrend.last} words per minute'),
+                          const SizedBox(height: ToungularSpace.s),
+                          _TrendBars(points: progress.fluencyTrend),
+                          if (progress.fluencyWpmVariance != null) ...<Widget>[
+                            const SizedBox(height: ToungularSpace.xs),
+                            Text('Session-to-session variation: ${progress.fluencyWpmVariance} words per minute.'),
+                          ],
+                        ],
+                      ]),
+                    ),
+                  ),
                   const SizedBox(height: ToungularSpace.m),
                   Card(
                     color: ToungularColor.ink,
@@ -239,4 +261,42 @@ class _MetricCard extends StatelessWidget {
           ]),
         ),
       );
+}
+
+class _TrendBars extends StatelessWidget {
+  const _TrendBars({required this.points});
+
+  final List<int> points;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxValue = points.fold<int>(0, (max, value) => value > max ? value : max);
+    return SizedBox(
+      height: 76,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: points
+            .map((point) => Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: <Widget>[
+                        Text('$point', style: Theme.of(context).textTheme.bodySmall),
+                        const SizedBox(height: 2),
+                        Container(
+                          height: maxValue == 0 ? 8 : (point / maxValue * 46).clamp(8, 46).toDouble(),
+                          decoration: BoxDecoration(
+                            color: ToungularColor.leaf,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ))
+            .toList(growable: false),
+      ),
+    );
+  }
 }

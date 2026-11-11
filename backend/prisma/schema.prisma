@@ -24,6 +24,8 @@ model User {
   streak         StreakState?
   referral       Referral?
   entitlements   PurchaseEntitlement[]
+  exposure       ExposureProgress[]
+  mastery        MasteryXp?
 }
 
 model RefreshToken {
@@ -65,17 +67,18 @@ model Course {
 }
 
 model Lesson {
-  id          String           @id
-  courseId    String
-  title       String
-  summary     String
-  content     String
-  durationMin Int
-  position    Int
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  progress    LessonProgress[]
+  id            String           @id
+  courseId      String
+  title         String
+  summary       String
+  content       String
+  vocabularyIds String           @default("[]")
+  durationMin   Int
+  position      Int
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  course        Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress      LessonProgress[]
 
   @@unique([courseId, position])
 }
@@ -99,6 +102,7 @@ model VocabularyItem {
   definition   String
   example      String
   level        String
+  tier         Int              @default(2)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
   schedules    ReviewSchedule[]
@@ -111,7 +115,12 @@ model ReviewSchedule {
   dueAt          DateTime
   intervalDays   Int            @default(0)
   repetitions    Int            @default(0)
+  easeFactor     Float          @default(2.5)
+  lapses         Int            @default(0)
   lastGrade      String?
+  lastRecallMode String?
+  source         String         @default("catalog")
+  context        String?
   lastReviewedAt DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -244,4 +253,32 @@ model PurchaseEntitlement {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status, expiresAt])
+}
+
+model ExposureProgress {
+  id              String    @id @default(cuid())
+  userId          String
+  level           Int
+  sessions        Int       @default(0)
+  lastPracticedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, level])
+}
+
+model MasteryXp {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  fluencyXp     Int      @default(0)
+  lexicalXp     Int      @default(0)
+  acousticXp    Int      @default(0)
+  interactionXp Int      @default(0)
+  totalXp       Int      @default(0)
+  level         Int      @default(1)
+  rankTitle     String   @default("Apprentice")
+  freezeTokens  Int      @default(2)
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -47,11 +47,17 @@ function average(values: Array<{ value: number | null }>): number | null {
   return present.length === 0 ? null : Math.round(present.reduce((total, value) => total + value, 0) / present.length);
 }
 
+function standardDeviation(values: number[]): number | null {
+  if (values.length < 2) return null;
+  const mean = values.reduce((total, value) => total + value, 0) / values.length;
+  return Number(Math.sqrt(values.reduce((total, value) => total + (value - mean) ** 2, 0) / values.length).toFixed(1));
+}
+
 export class ProgressService {
   public constructor(private readonly database: PrismaClient) {}
 
   public async summary(userId: string) {
-    const [lessons, reviews, speaking, recent, vocabularySnapshots, fluencyBaseline, fluencyFollowUps] = await Promise.all([
+    const [lessons, reviews, speaking, recent, vocabularySnapshots, fluencyBaseline, fluencyFollowUps, fluencySessions] = await Promise.all([
       this.database.lessonProgress.count({ where: { userId } }),
       this.database.reviewSchedule.aggregate({ where: { userId }, _sum: { repetitions: true }, _count: { _all: true } }),
       this.database.speakingSession.count({ where: { userId, status: 'completed', deletedAt: null } }),
@@ -79,12 +85,30 @@ export class ProgressService {
         take: 2,
         select: { value: true },
       }),
+      this.database.skillSnapshot.findMany({
+        where: { userId, skill: 'fluency', source: 'speaking-session' },
+        orderBy: { recordedAt: 'desc' },
+        take: 10,
+        select: { value: true },
+      }),
     ]);
     const streak = await this.streak(userId);
     const baseline = [...vocabularySnapshots].reverse().find((snapshot) => snapshot.source === 'placement-baseline');
     const latest = vocabularySnapshots[0];
-    const fluencyBaselineWpm = fluencyBaseline.length >= 2 ? average(fluencyBaseline) : null;
-    const fluencyLatestWpm = fluencyFollowUps.length > 0 ? average(fluencyFollowUps) : fluencyBaselineWpm;
+    const fluencyPoints = fluencySessions.flatMap((item) => item.value == null ? [] : [item.value]).reverse();
+    const fluencyBaselineWpm = fluencyBaseline.length >= 2
+      ? average(fluencyBaseline)
+      : fluencyPoints.length > 0
+        ? Math.round(fluencyPoints[0]!)
+        : null;
+    const fluencyLatestWpm = fluencyFollowUps.length > 0
+      ? average(fluencyFollowUps)
+      : fluencyPoints.length > 0
+        ? Math.round(fluencyPoints[fluencyPoints.length - 1]!)
+        : fluencyBaselineWpm;
+    const fluencyScoreChange = fluencyBaselineWpm != null && fluencyLatestWpm != null && (fluencyFollowUps.length > 0 || fluencyPoints.length >= 2)
+      ? fluencyLatestWpm - fluencyBaselineWpm
+      : null;
     return {
       lessonsCompleted: lessons,
       vocabularyItemsReviewed: reviews._count._all,
@@ -95,10 +119,10 @@ export class ProgressService {
       vocabularyScoreChange: baseline && latest ? latest.value! - baseline.value! : null,
       fluencyBaselineWpm,
       fluencyLatestWpm,
-      fluencyScoreChange: fluencyBaselineWpm != null && fluencyFollowUps.length > 0 && fluencyLatestWpm != null
-        ? fluencyLatestWpm - fluencyBaselineWpm
-        : null,
+      fluencyScoreChange,
       fluencyBaselineSessions: fluencyBaseline.length,
+      fluencyTrend: fluencyPoints.map((value) => Math.round(value)),
+      fluencyWpmVariance: standardDeviation(fluencyPoints),
       currentStreak: streak.currentDays,
       longestStreak: streak.longestDays,
       recentSpeakingSessions: recent,

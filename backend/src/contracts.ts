@@ -1,5 +1,7 @@
 export type Proficiency = 'beginner' | 'elementary' | 'intermediate' | 'upperIntermediate' | 'advanced';
 export type ReviewGrade = 'again' | 'hard' | 'good' | 'easy';
+export type RecallMode = 'definition' | 'cloze' | 'audio' | 'sentence';
+export type VocabularyTier = 1 | 2 | 3;
 
 export type RegisterInput = {
   email: string;
@@ -63,9 +65,15 @@ export type VocabularyReview = {
     definition: string;
     example: string;
     level: string;
+    tier: VocabularyTier;
   };
   dueAt: Date;
   intervalDays: number;
   repetitions: number;
+  easeFactor: number;
+  lapses: number;
   lastGrade: ReviewGrade | null;
+  recallMode: RecallMode;
+  cloze: string | null;
+  source: string;
 };

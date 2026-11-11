@@ -8,14 +8,19 @@ import '../features/auth/onboarding_screen.dart';
 import '../features/auth/session_controller.dart';
 import '../features/coach/coach_conversation_screen.dart';
 import '../features/coach/coach_scenarios_screen.dart';
+import '../features/content/content_screen.dart';
 import '../features/courses/courses_screen.dart';
 import '../features/courses/lesson_screen.dart';
+import '../features/exposure/exposure_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/ielts/ielts_repository.dart';
 import '../features/ielts/ielts_screen.dart';
+import '../features/mastery/mastery_screen.dart';
 import '../features/progress/progress_screen.dart';
 import '../features/monetization/plus_screen.dart';
 import '../features/placement/placement_screen.dart';
+import '../features/pronunciation/pronunciation_lab_screen.dart';
+import '../features/shadow/shadow_screen.dart';
 import '../features/speaking/speaking_history_screen.dart';
 import '../features/speaking/speaking_screen.dart';
 import '../features/vocabulary/vocabulary_screen.dart';
@@ -34,6 +39,7 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => LessonScreen(lessonId: state.pathParameters['lessonId']!),
     ),
     GoRoute(path: '/vocabulary', builder: (context, state) => const VocabularyScreen()),
+    GoRoute(path: '/exposure', builder: (context, state) => const ExposureScreen()),
     GoRoute(
       path: '/speaking',
       builder: (context, state) => SpeakingScreen(
@@ -64,6 +70,22 @@ final GoRouter appRouter = GoRouter(
     GoRoute(path: '/progress', builder: (context, state) => const ProgressScreen()),
     GoRoute(path: '/plus', builder: (context, state) => const ToungularPlusScreen()),
     GoRoute(path: '/placement', builder: (context, state) => const PlacementScreen()),
+    GoRoute(path: '/shadow', builder: (context, state) => const ShadowScreen()),
+    GoRoute(
+      path: '/shadow/:passageId',
+      builder: (context, state) => ShadowScreen(passageId: state.pathParameters['passageId']),
+    ),
+    GoRoute(path: '/content', builder: (context, state) => const ContentScreen()),
+    GoRoute(
+      path: '/content/:articleId',
+      builder: (context, state) => ContentScreen(initialArticleId: state.pathParameters['articleId']),
+    ),
+    GoRoute(path: '/pronunciation', builder: (context, state) => const PronunciationLabScreen()),
+    GoRoute(
+      path: '/pronunciation/:pairId',
+      builder: (context, state) => PronunciationLabScreen(initialPairId: state.pathParameters['pairId']),
+    ),
+    GoRoute(path: '/mastery', builder: (context, state) => const MasteryScreen()),
   ],
 );
 

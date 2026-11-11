@@ -8,7 +8,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
 [![License](https://img.shields.io/badge/License-Proprietary-red)](#)
 
-**Toungular** is a modern, Android-first spoken English learning platform built independently from the ground up. It delivers comprehensive spoken practice, adaptive learning roadmaps, spaced repetition vocabulary, and transparent, science-backed fluency feedback.
+**Toungular** is a modern, Android-first spoken English learning platform built independently from the ground up. It delivers comprehensive spoken practice, adaptive learning roadmaps, spaced repetition vocabulary, cognitive-behavioral comfort ladders, and transparent, science-backed fluency feedback.
 
 ---
 
@@ -16,11 +16,16 @@
 
 | Feature | Description | Status |
 |---|---|---|
-| 🎙️ **Speaking Studio** | Local audio capture, instant playback, editable transcripts, and transparent algorithmic pace (WPM), filler density, and lexical variety metrics. | ✅ Implemented |
-| 🧠 **SRS Vocabulary Engine** | Modified interval-based spaced repetition scheduler (`again`, `hard`, `good`, `easy`) with offline queue sync and active recall testing. | ✅ Implemented |
+| 🎙️ **Speaking Studio** | Local audio capture, instant playback, editable transcripts, on-device pause detection, and transparent pace (WPM), filler density, and lexical variety metrics. | ✅ Implemented |
+| 🤖 **Dual-Engine AI** | **System One**: Sub-300ms discriminative decisions via Jev (`typesafe/jev`) on OpenCode Zen for Krashen anxiety triage, CEFR calibration, and coach gating.<br>**System Two**: Conversational LLM via Google Gemini 3.5 Flash-Lite for dialogue & recasting. | ✅ Implemented |
+| 🗣️ **Phoneme Lab** | Minimal pairs phonetic discrimination (`/r/ vs /l/`, `/θ/ vs /s/`, `/iː/ vs /ɪ/`, etc.) with articulatory biomechanics (tongue/lip guides), sentence drills, and substitution detection. | ✅ Implemented |
+| 🏆 **SDT Mastery Profile** | Self-Determination Theory 4-axis skill XP (`fluency`, `lexical`, `acoustic`, `interaction`) across 6 rank tiers (`Apprentice` $\rightarrow$ `Mastery`) with anti-anxiety streak freeze tokens. | ✅ Implemented |
+| 🎧 **Speech Shadowing** | Auditory-vocal mimicry engine with native model passages, tempo alignment, pacing deviation scoring, and pause composure tracking. | ✅ Implemented |
+| 📖 **Comprehensible Input ($i+1$)** | Authentic CEFR-graded articles with active recall summaries and automatic vocabulary exposure harvesting. | ✅ Implemented |
+| 🧠 **SRS Vocabulary Engine** | Modified SuperMemo SM-2 spaced repetition scheduler (`again`, `hard`, `good`, `easy`) with 4 recall modes (definition, cloze, audio, sentence) and offline queue sync. | ✅ Implemented |
 | 🎯 **Placement & Baseline** | Fixed 20-item vocabulary recall assessment and dual standardized speaking prompts for longitudinal progress tracking without prompt drift. | ✅ Implemented |
 | 🗺️ **Roadmap & Courses** | Multi-course curriculum with modular lesson activities (vocabulary, grammar, pronunciation, integrated) and offline caching. | ✅ Implemented |
-| 💬 **AI Coach & Role-Play** | Multi-turn conversation scenarios (interview, travel, workplace) with turn-aware coaching and explicit graceful provider-fallback states. | ✅ Implemented |
+| 💬 **AI Coach & Role-Play** | Multi-turn conversation scenarios (interview, travel, workplace) with turn-aware coaching, recasts, and graceful offline fallback states. | ✅ Implemented |
 | ⏱️ **IELTS-Style Practice** | Timed speaking sections (Part 1 interview, Part 2 long-turn, Part 3 discussion) with preparation/response countdown timers and attempt history. | ✅ Implemented |
 | 📊 **Progress & Habits** | Longitudinal skill breakdown, streak tracking, activity heatmaps, and Android local notification reminders. | ✅ Implemented |
 | 🛡️ **Privacy & Compliance** | In-app account deletion cascading all user data; zero raw voice data stored on servers (audio remains in app-private storage). | ✅ Implemented |
@@ -36,9 +41,9 @@ toungular/
 │   ├── android/             # Android project with desugaring & permissions
 │   ├── lib/
 │   │   ├── app/             # Routing (go_router), global lifecycle, shell
-│   │   ├── core/            # Networking (Dio), storage, theme, state
-│   │   ├── features/        # Feature modules: auth, speaking, coach, ielts,
-│   │   │                    # courses, vocabulary, progress, monetization
+│   │   ├── core/            # Networking (Dio), storage, theme, state, voice
+│   │   ├── features/        # Feature modules: auth, speaking, coach, ielts, courses,
+│   │   │                    # vocabulary, exposure, shadow, content, pronunciation, mastery
 │   │   └── shared/          # Typed API and domain models
 │   └── pubspec.yaml
 │
@@ -48,7 +53,8 @@ toungular/
 │   │   └── postgresql/      # PostgreSQL schema & migrations for production
 │   ├── src/
 │   │   ├── routes/v1.ts     # Express 5 typed REST endpoints
-│   │   ├── services/        # Business logic: auth, speaking, coach, ielts...
+│   │   ├── providers/       # Jev decision engine & voice synthesis adapters
+│   │   ├── services/        # Business logic: auth, speaking, coach, ielts, mastery, pronunciation...
 │   │   └── middleware/      # JWT authentication, validation, error handling
 │   └── storage/             # Local database & transient file storage
 │
@@ -80,7 +86,7 @@ npm install
 
 # Generate Prisma Client & apply SQLite migrations
 npm run prisma:generate
-npx prisma migrate deploy --schema prisma/schema.prisma
+npx prisma db push --schema prisma/schema.prisma
 
 # Seed original curriculum and vocabulary
 npm run seed
@@ -134,17 +140,19 @@ mobile/build/app/outputs/flutter-apk/app-debug.apk
 - **Zero Audio Leakage**: Audio recordings remain inside the Android app's private cache directory. Transcripts and transparent metrics are synchronized to the API; no raw voice bytes are retained long-term on the server.
 - **Account Deletion**: Full compliance with Google Play Store data safety requirements. A user can trigger complete account deletion via `DELETE /v1/me` or directly from the in-app Account Settings screen.
 - **Server-Side Provider Secrets**: All third-party AI, speech synthesis, and analytics credentials are kept strictly server-side; no secrets are ever embedded in the mobile binary.
+- **Billing & Monetization Safety**: Billing verification returns a clear unavailable response until Toungular configures a Play Billing provider. No purchase button can charge users in an unconfigured state.
 - **Non-Intrusive Ads**: Google Mobile Ads are disabled by default (`ADS_ENABLED=false`). When enabled for development, `AdPlacementPolicy` enforces that ads are never shown during active recording, lesson activities, or voice sessions.
+- **Android Permissions**: Microphone permission is requested only when a learner starts a speaking recording. Notification permission is requested only when saving a reminder.
 
 ---
 
-## 🔬 Science-Backed Roadmap (Superpowers)
+## 🔬 Science-Backed Pedagogical Architecture
 
-Toungular is engineered to incorporate findings from cognitive psychology, Second-Language Acquisition (SLA), and speech science:
+Toungular is engineered around empirical findings from cognitive psychology, Second-Language Acquisition (SLA), and speech science:
 
-1. **Speech Shadowing Engine** (Hamada 2016, 2024 meta-analysis): Parallel audio prosody tracking and acoustic alignment against native models.
-2. **Graduated Anxiety Reduction System** (Affective Filter Hypothesis): Step-ladder practice from anonymous whispering to live interactive scenarios.
-3. **Phoneme-Level Articulation Drills**: Acoustic formant comparison and minimal-pair identification based on learner L1 interference.
-4. **Contextual Comprehensible Input (i+1)**: Automated CEFR lexical tagging and adaptive readability adjustment.
-
-See [`docs/TOUNGULAR-SUPERPOWERS-PLAN.md`](docs/TOUNGULAR-SUPERPOWERS-PLAN.md) and [`docs/Opencode-Handoff.md`](docs/Opencode-Handoff.md) for full citations and specifications.
+1. **Dual-Engine Decision & Generative AI**: Sub-300ms discriminative state evaluation (Jev) combined with deep contextual recasts (Gemini 3.5 Flash-Lite).
+2. **Speech Shadowing Engine** (Hamada 2016, 2024 meta-analysis): Auditory-vocal prosody tracking and acoustic alignment against native models.
+3. **Graduated Anxiety Reduction System** (Affective Filter Hypothesis): Step-ladder practice from anonymous whispering to live interactive scenarios.
+4. **Phoneme-Level Articulation Drills**: Acoustic minimal-pair identification and articulatory biomechanics guidance.
+5. **Self-Determination Theory (SDT) Mastery Profile**: Autonomy-supportive streak freeze tokens and 4-axis competence tracking.
+6. **Contextual Comprehensible Input ($i+1$)**: Automated CEFR lexical tagging and adaptive readability adjustment.

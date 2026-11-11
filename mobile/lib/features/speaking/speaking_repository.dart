@@ -30,10 +30,19 @@ class SpeakingRepository {
     );
   }
 
-  Future<SpeakingFeedback> analyze(String id, int durationSeconds) =>
+  Future<SpeakingFeedback> analyze(
+    String id,
+    int durationSeconds, {
+    String? transcript,
+    List<double> pauses = const <double>[],
+  }) =>
       _api.post<SpeakingFeedback>(
         '/v1/speaking-sessions/$id/analyze',
-        <String, Object?>{'durationSeconds': durationSeconds.clamp(1, 600)},
+        <String, Object?>{
+          'durationSeconds': durationSeconds.clamp(1, 600),
+          if (transcript != null) 'transcript': transcript,
+          if (pauses.isNotEmpty) 'pauses': pauses,
+        },
         SpeakingFeedback.fromJson,
       );
 
@@ -42,6 +51,23 @@ class SpeakingRepository {
         (json) => (json as List<dynamic>? ?? const <dynamic>[])
             .map(SpeakingSessionSummary.fromJson)
             .toList(growable: false),
+      );
+
+  Future<AffectiveAssessmentResult> assessAffectiveState({
+    required String transcript,
+    required int durationSeconds,
+    required int pauseCount,
+    required double wpm,
+  }) =>
+      _api.post<AffectiveAssessmentResult>(
+        '/v1/decision/affective-state',
+        <String, Object?>{
+          'transcript': transcript,
+          'durationSeconds': durationSeconds,
+          'pauseCount': pauseCount,
+          'wpm': wpm,
+        },
+        AffectiveAssessmentResult.fromJson,
       );
 
   Future<void> saveAudioPath(String sessionId, String path) async {

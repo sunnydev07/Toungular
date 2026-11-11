@@ -147,6 +147,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: ToungularSpace.m),
               _quickLink(
                 context,
+                icon: Icons.hearing_outlined,
+                title: 'Phoneme Lab (Minimal Pairs)',
+                detail: 'Acoustic contrast & articulatory biomechanics',
+                path: '/pronunciation',
+                color: const Color(0xFFE0F7FA),
+              ),
+              const SizedBox(height: ToungularSpace.s),
+              _quickLink(
+                context,
+                icon: Icons.workspace_premium_rounded,
+                title: 'Mastery Profile (4-Axis XP)',
+                detail: 'Self-Determination Theory competence & freeze tokens',
+                path: '/mastery',
+                color: const Color(0xFFFFF9C4),
+              ),
+              const SizedBox(height: ToungularSpace.s),
+              _quickLink(
+                context,
                 icon: Icons.quiz_outlined,
                 title: 'Vocabulary baseline',
                 detail: 'Set a starting point for word recall',
@@ -161,6 +179,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 detail: 'Practice out loud',
                 path: '/speaking',
                 color: ToungularColor.mist,
+              ),
+              const SizedBox(height: ToungularSpace.s),
+              _quickLink(
+                context,
+                icon: Icons.graphic_eq_rounded,
+                title: 'Speech shadowing',
+                detail: 'Match native rhythm, cadence & tempo',
+                path: '/shadow',
+                color: const Color(0xFFE0F2F1),
+              ),
+              const SizedBox(height: ToungularSpace.s),
+              _quickLink(
+                context,
+                icon: Icons.auto_stories_outlined,
+                title: 'Comprehensible input (i+1)',
+                detail: 'Calibrated reading & output-forcing practice',
+                path: '/content',
+                color: const Color(0xFFF3E5F5),
+              ),
+              const SizedBox(height: ToungularSpace.s),
+              _quickLink(
+                context,
+                icon: Icons.spa_outlined,
+                title: 'Comfort path',
+                detail: 'Start speaking gently, one level at a time',
+                path: '/exposure',
+                color: const Color(0xFFE8F5E9),
               ),
               const SizedBox(height: ToungularSpace.s),
               _quickLink(
@@ -241,31 +286,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Row(
       children: <Widget>[
         Expanded(
-          child: _InfoCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Icon(Icons.forum_outlined, color: ToungularColor.leaf),
-                const SizedBox(height: ToungularSpace.s),
-                Text('Fluency', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: ToungularSpace.xs),
-                const Text('Baseline not set'),
-              ],
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => context.push('/mastery'),
+            child: _InfoCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Icon(Icons.forum_outlined, color: ToungularColor.leaf),
+                  const SizedBox(height: ToungularSpace.s),
+                  Text('Fluency XP', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: ToungularSpace.xs),
+                  const Text('View Mastery Profile'),
+                ],
+              ),
             ),
           ),
         ),
         const SizedBox(width: ToungularSpace.s),
         Expanded(
-          child: _InfoCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Icon(Icons.menu_book_outlined, color: ToungularColor.coral),
-                const SizedBox(height: ToungularSpace.s),
-                Text('Vocabulary', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: ToungularSpace.xs),
-                const Text('Review builds recall'),
-              ],
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => context.push('/mastery'),
+            child: _InfoCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Icon(Icons.menu_book_outlined, color: ToungularColor.coral),
+                  const SizedBox(height: ToungularSpace.s),
+                  Text('Lexical XP', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: ToungularSpace.xs),
+                  const Text('4-Axis Skill Radar'),
+                ],
+              ),
             ),
           ),
         ),

@@ -1,50 +1,84 @@
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient, VocabularyItem as PrismaVocabularyItem } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 
-import type { ReviewGrade, VocabularyReview } from '../contracts.js';
+import type { RecallMode, ReviewGrade, VocabularyReview, VocabularyTier } from '../contracts.js';
 import { AppError } from '../lib/http.js';
+import { buildCloze, nextSchedule, recallModeFor, tierOrder } from './srs.js';
 
 const DUE_LIMIT = 20;
+const NEW_ITEM_POOL = 80;
 
-function toReview(item: {
-  id: string;
+type ScheduleRecord = {
+  dueAt: Date;
+  intervalDays: number;
+  repetitions: number;
+  easeFactor: number;
+  lapses: number;
+  lastGrade: string | null;
+  source: string;
+};
+
+type ManualWordInput = {
   word: string;
   partOfSpeech: string;
   definition: string;
   example: string;
   level: string;
-}, schedule: {
-  dueAt: Date;
-  intervalDays: number;
-  repetitions: number;
-  lastGrade: string | null;
-}): VocabularyReview {
+  tier?: number | undefined;
+};
+
+function emptySchedule(now: Date): ScheduleRecord {
   return {
-    item,
-    dueAt: schedule.dueAt,
-    intervalDays: schedule.intervalDays,
-    repetitions: schedule.repetitions,
-    lastGrade: schedule.lastGrade as ReviewGrade | null,
+    dueAt: now,
+    intervalDays: 0,
+    repetitions: 0,
+    easeFactor: 2.5,
+    lapses: 0,
+    lastGrade: null,
+    source: 'catalog',
   };
 }
 
-function nextSchedule(grade: ReviewGrade, intervalDays: number, repetitions: number, now: Date) {
-  const nextInterval = (() => {
-    if (grade === 'again') return 1;
-    if (grade === 'hard') return Math.max(1, intervalDays + 1);
-    if (grade === 'good') return repetitions === 0 ? 1 : repetitions === 1 ? 3 : intervalDays * 2;
-    return repetitions === 0 ? 3 : Math.max(4, intervalDays * 3);
-  })();
+function toTier(value: number): VocabularyTier {
+  return value === 1 || value === 3 ? value : 2;
+}
+
+function toReview(item: PrismaVocabularyItem, schedule: ScheduleRecord, ttsAvailable: boolean): VocabularyReview {
+  const requested = recallModeFor(schedule.repetitions, ttsAvailable);
+  const cloze = requested === 'cloze' ? buildCloze(item.example, item.word) : null;
+  const recallMode: RecallMode = requested === 'cloze' && !cloze ? 'definition' : requested;
   return {
-    intervalDays: nextInterval,
-    repetitions: grade === 'again' ? 0 : repetitions + 1,
-    dueAt: new Date(now.getTime() + nextInterval * 24 * 60 * 60 * 1000),
+    item: {
+      id: item.id,
+      word: item.word,
+      partOfSpeech: item.partOfSpeech,
+      definition: item.definition,
+      example: item.example,
+      level: item.level,
+      tier: toTier(item.tier),
+    },
+    dueAt: schedule.dueAt,
+    intervalDays: schedule.intervalDays,
+    repetitions: schedule.repetitions,
+    easeFactor: schedule.easeFactor,
+    lapses: schedule.lapses,
+    lastGrade: schedule.lastGrade as ReviewGrade | null,
+    recallMode,
+    cloze,
+    source: schedule.source,
   };
+}
+
+function tierForLevel(level: string): number {
+  if (level === 'beginner' || level === 'elementary') return 1;
+  if (level === 'advanced') return 3;
+  return 2;
 }
 
 export class VocabularyService {
   public constructor(private readonly database: PrismaClient) {}
 
-  public async getDue(userId: string, now: Date): Promise<VocabularyReview[]> {
+  public async getDue(userId: string, now: Date, ttsAvailable: boolean): Promise<VocabularyReview[]> {
     const scheduled = await this.database.reviewSchedule.findMany({
       where: { userId, dueAt: { lte: now } },
       orderBy: { dueAt: 'asc' },
@@ -52,22 +86,20 @@ export class VocabularyService {
       include: { vocabulary: true },
     });
     const remaining = DUE_LIMIT - scheduled.length;
-    const newItems = remaining > 0
+    const candidates = remaining > 0
       ? await this.database.vocabularyItem.findMany({
         where: { schedules: { none: { userId } } },
         orderBy: { word: 'asc' },
-        take: remaining,
+        take: NEW_ITEM_POOL,
       })
       : [];
+    const newItems = candidates
+      .sort((left, right) => tierOrder(toTier(left.tier)) - tierOrder(toTier(right.tier)) || left.word.localeCompare(right.word))
+      .slice(0, remaining);
 
     return [
-      ...scheduled.map((schedule) => toReview(schedule.vocabulary, schedule)),
-      ...newItems.map((item) => toReview(item, {
-        dueAt: now,
-        intervalDays: 0,
-        repetitions: 0,
-        lastGrade: null,
-      })),
+      ...scheduled.map((schedule) => toReview(schedule.vocabulary, schedule, ttsAvailable)),
+      ...newItems.map((item) => toReview(item, emptySchedule(now), ttsAvailable)),
     ];
   }
 
@@ -75,7 +107,9 @@ export class VocabularyService {
     userId: string,
     itemId: string,
     grade: ReviewGrade,
+    mode: RecallMode | undefined,
     now: Date,
+    ttsAvailable: boolean,
   ): Promise<VocabularyReview> {
     const item = await this.database.vocabularyItem.findUnique({ where: { id: itemId } });
     if (!item) {
@@ -84,18 +118,148 @@ export class VocabularyService {
     const current = await this.database.reviewSchedule.findUnique({
       where: { userId_vocabularyId: { userId, vocabularyId: itemId } },
     });
-    const scheduled = nextSchedule(grade, current?.intervalDays ?? 0, current?.repetitions ?? 0, now);
+    const next = nextSchedule(
+      {
+        intervalDays: current?.intervalDays ?? 0,
+        repetitions: current?.repetitions ?? 0,
+        easeFactor: current?.easeFactor ?? 2.5,
+        lapses: current?.lapses ?? 0,
+      },
+      grade,
+      { now, mode, contextual: (current?.source ?? 'catalog') !== 'catalog' },
+    );
+    const schedule = next;
     const persisted = await this.database.reviewSchedule.upsert({
       where: { userId_vocabularyId: { userId, vocabularyId: itemId } },
-      update: { ...scheduled, lastGrade: grade, lastReviewedAt: now },
+      update: {
+        ...schedule,
+        lastGrade: grade,
+        lastRecallMode: mode ?? null,
+        lastReviewedAt: now,
+      },
       create: {
         userId,
         vocabularyId: itemId,
-        ...scheduled,
+        ...schedule,
+        source: current?.source ?? 'catalog',
+        context: current?.context ?? null,
         lastGrade: grade,
+        lastRecallMode: mode ?? null,
         lastReviewedAt: now,
       },
     });
-    return toReview(item, persisted);
+    return toReview(item, persisted, ttsAvailable);
+  }
+
+  public async addManual(userId: string, input: ManualWordInput, now: Date, ttsAvailable: boolean): Promise<VocabularyReview> {
+    const word = input.word.trim().toLowerCase();
+    const existing = await this.database.vocabularyItem.findUnique({ where: { word } });
+    if (existing) return this.scheduleNew(userId, existing, 'manual', null, now, ttsAvailable);
+
+    const slug = word.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'word';
+    const item = await this.database.vocabularyItem.create({
+      data: {
+        id: `vocab-${slug}-${randomUUID().slice(0, 8)}`,
+        word,
+        partOfSpeech: input.partOfSpeech,
+        definition: input.definition,
+        example: input.example,
+        level: input.level,
+        tier: input.tier ?? tierForLevel(input.level),
+      },
+    });
+    return this.scheduleNew(userId, item, 'manual', null, now, ttsAvailable);
+  }
+
+  public async recordEncounter(
+    userId: string,
+    word: string,
+    source: string,
+    context: string | null,
+    now: Date,
+    ttsAvailable: boolean,
+  ) {
+    const normalized = word.trim().toLowerCase();
+    const item = await this.database.vocabularyItem.findUnique({ where: { word: normalized } });
+    if (!item) {
+      return { word: normalized, scheduled: false, reason: 'not_in_catalog' };
+    }
+    const review = await this.scheduleNew(userId, item, source, context, now, ttsAvailable);
+    return { word: normalized, scheduled: true, review };
+  }
+
+  public async scheduleLessonWords(userId: string, lessonId: string, now: Date): Promise<number> {
+    const lesson = await this.database.lesson.findUnique({
+      where: { id: lessonId },
+      select: { vocabularyIds: true },
+    });
+    const ids = this.parseIds(lesson?.vocabularyIds).slice(0, 6);
+    if (ids.length === 0) return 0;
+    return this.scheduleItems(userId, ids, 'lesson', null, now);
+  }
+
+  public async scheduleEncounterWords(
+    userId: string,
+    transcript: string,
+    source: string,
+    now: Date,
+  ): Promise<number> {
+    const tokens = [...new Set((transcript.toLowerCase().match(/[a-z][a-z'-]{2,}/g) ?? []))].slice(0, 80);
+    if (tokens.length === 0) return 0;
+    const items = await this.database.vocabularyItem.findMany({ where: { word: { in: tokens } }, take: 3 });
+    if (items.length === 0) return 0;
+    return this.scheduleItems(userId, items.map((item) => item.id), source, transcript.slice(0, 500), now);
+  }
+
+  private async scheduleItems(
+    userId: string,
+    itemIds: string[],
+    source: string,
+    context: string | null,
+    now: Date,
+  ): Promise<number> {
+    const items = await this.database.vocabularyItem.findMany({ where: { id: { in: itemIds } } });
+    let created = 0;
+    for (const item of items) {
+      const schedule = await this.database.reviewSchedule.findUnique({
+        where: { userId_vocabularyId: { userId, vocabularyId: item.id } },
+      });
+      if (schedule) continue;
+      await this.database.reviewSchedule.create({
+        data: { userId, vocabularyId: item.id, dueAt: now, source, context },
+      });
+      created += 1;
+    }
+    return created;
+  }
+
+  private async scheduleNew(
+    userId: string,
+    item: PrismaVocabularyItem,
+    source: string,
+    context: string | null,
+    now: Date,
+    ttsAvailable: boolean,
+  ): Promise<VocabularyReview> {
+    const current = await this.database.reviewSchedule.findUnique({
+      where: { userId_vocabularyId: { userId, vocabularyId: item.id } },
+    });
+    if (current) {
+      return toReview(item, current, ttsAvailable);
+    }
+    const schedule = await this.database.reviewSchedule.create({
+      data: { userId, vocabularyId: item.id, dueAt: now, source, context },
+    });
+    return toReview(item, schedule, ttsAvailable);
+  }
+
+  private parseIds(encoded: string | undefined): string[] {
+    if (!encoded) return [];
+    try {
+      const parsed: unknown = JSON.parse(encoded);
+      return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : [];
+    } catch {
+      return [];
+    }
   }
 }

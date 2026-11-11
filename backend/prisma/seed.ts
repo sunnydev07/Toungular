@@ -27,6 +27,31 @@ const lessons = [
   ['confident-expression-06', 'confident-expression', 'Reflect on progress', 'Describe what has improved and what you will practice next.', 'Use one past example and one realistic next step.', 9, 6],
 ] as const;
 
+const lessonVocabulary: Record<string, string[]> = {
+  'clear-start-01': ['describe', 'detail', 'goal'],
+  'clear-start-02': ['polite', 'clarify', 'confirm'],
+  'clear-start-03': ['routine', 'schedule', 'frequent'],
+  'clear-start-04': ['topic', 'identify', 'specific'],
+  'clear-start-05': ['describe', 'mention', 'confirm'],
+  'clear-start-06': ['invite', 'arrange', 'flexible'],
+  'steady-conversation-01': ['detail', 'example', 'specific'],
+  'steady-conversation-02': ['attentive', 'follow-up', 'respond'],
+  'steady-conversation-03': ['describe', 'reflect', 'gradual'],
+  'steady-conversation-04': ['benefit', 'trade-off', 'consider'],
+  'steady-conversation-05': ['clarify', 'perspective', 'indicate'],
+  'steady-conversation-06': ['confirm', 'schedule', 'polite'],
+  'confident-expression-01': ['justify', 'perspective', 'support'],
+  'confident-expression-02': ['tackle', 'approach', 'effective'],
+  'confident-expression-03': ['recommend', 'strategy', 'contribute'],
+  'confident-expression-04': ['connect', 'indicate', 'relevant'],
+  'confident-expression-05': ['perspective', 'decline', 'polite'],
+  'confident-expression-06': ['reflect', 'progress', 'maintain'],
+};
+
+function vocabularyId(word: string): string {
+  return `vocab-${word.replaceAll(/[^a-z]/g, '-')}`;
+}
+
 const vocabulary = [
   ['adapt', 'verb', 'change to fit a new situation', 'I can adapt my plan when the meeting moves.', 'intermediate'],
   ['approach', 'noun', 'a way of dealing with a task or problem', 'Her approach to practice is short and regular.', 'intermediate'],
@@ -115,18 +140,20 @@ async function seed(): Promise<void> {
     await prisma.course.upsert({ where: { id: course.id }, update: course, create: course });
   }
   for (const [id, courseId, title, summary, content, durationMin, position] of lessons) {
+    const vocabularyIds = JSON.stringify((lessonVocabulary[id] ?? []).map(vocabularyId));
     await prisma.lesson.upsert({
       where: { id },
-      update: { courseId, title, summary, content, durationMin, position },
-      create: { id, courseId, title, summary, content, durationMin, position },
+      update: { courseId, title, summary, content, vocabularyIds, durationMin, position },
+      create: { id, courseId, title, summary, content, vocabularyIds, durationMin, position },
     });
   }
   for (const [word, partOfSpeech, definition, example, level] of vocabulary) {
-    const id = `vocab-${word.replaceAll(/[^a-z]/g, '-')}`;
+    const id = vocabularyId(word);
+    const tier = level === 'beginner' || level === 'elementary' ? 1 : level === 'advanced' ? 3 : 2;
     await prisma.vocabularyItem.upsert({
       where: { id },
-      update: { word, partOfSpeech, definition, example, level },
-      create: { id, word, partOfSpeech, definition, example, level },
+      update: { word, partOfSpeech, definition, example, level, tier },
+      create: { id, word, partOfSpeech, definition, example, level, tier },
     });
   }
 }

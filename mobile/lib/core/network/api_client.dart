@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -51,6 +53,33 @@ class ApiClient {
   ) =>
       _request(path, 'POST', decoder, body: body);
 
+  Future<T> postRaw<T>(
+    String path,
+    List<int> bytes,
+    String contentType,
+    T Function(Object? json) decoder,
+  ) =>
+      _request(path, 'POST', decoder, body: bytes, contentType: contentType);
+
+  Future<Uint8List> postBytes(String path, Object? body) async {
+    try {
+      final response = await _dio.post<dynamic>(
+        path,
+        data: body,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: await _headers(),
+        ),
+      );
+      final data = response.data;
+      if (data is Uint8List) return data;
+      if (data is List<int>) return Uint8List.fromList(data);
+      throw const ApiException(message: 'The voice response was not audio.', failure: ApiFailure.unknown);
+    } on DioException catch (error) {
+      throw _translate(error);
+    }
+  }
+
   Future<T> patch<T>(
     String path,
     Object? body,
@@ -73,17 +102,17 @@ class ApiClient {
     String method,
     T Function(Object? json) decoder, {
     Object? body,
+    String? contentType,
   }) async {
     try {
-      final token = await _sessionStore.readAccessToken();
-      final headers = <String, Object>{};
-      if (token != null && token.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $token';
-      }
       final response = await _dio.request<dynamic>(
         path,
         data: body,
-        options: Options(method: method, headers: headers),
+        options: Options(
+          method: method,
+          headers: await _headers(),
+          contentType: contentType,
+        ),
       );
       final responseBody = response.data;
       if (responseBody is Map && responseBody.containsKey('data')) {
@@ -93,6 +122,15 @@ class ApiClient {
     } on DioException catch (error) {
       throw _translate(error);
     }
+  }
+
+  Future<Map<String, Object>> _headers() async {
+    final token = await _sessionStore.readAccessToken();
+    final headers = <String, Object>{};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    return headers;
   }
 
   ApiException _translate(DioException error) {

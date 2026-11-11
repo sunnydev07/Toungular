@@ -14,7 +14,7 @@ final vocabularyRepositoryProvider = Provider<VocabularyRepository>(
 class VocabularyRepository {
   const VocabularyRepository(this._api, this._sessions);
 
-  static const _cachePrefix = 'toungular.vocab-due.v1.';
+  static const _cachePrefix = 'toungular.vocab-due.v2.';
   static const _queuePrefix = 'toungular.vocab-actions.v1.';
   final ApiClient _api;
   final SessionStore _sessions;
@@ -52,23 +52,45 @@ class VocabularyRepository {
     }
   }
 
-  Future<void> submitReview(String itemId, String grade) async {
+  Future<void> submitReview(String itemId, String grade, {String? mode}) async {
     if (!const <String>{'again', 'hard', 'good', 'easy'}.contains(grade)) {
       throw ArgumentError.value(grade, 'grade', 'Unknown vocabulary review grade.');
     }
+    final payload = <String, Object?>{'grade': grade, if (mode != null) 'mode': mode};
     try {
       await _flushPending();
       await _api.post<Object?>(
         '/v1/vocabulary/$itemId/review',
-        <String, Object?>{'grade': grade},
+        payload,
         (json) => json,
       );
     } on ApiException catch (error) {
       if (error.failure != ApiFailure.network && error.failure != ApiFailure.server) rethrow;
-      await _enqueue(<String, Object?>{'itemId': itemId, 'grade': grade});
+      await _enqueue(<String, Object?>{'itemId': itemId, ...payload});
     }
     await _removeFromCachedDue(itemId);
   }
+
+  Future<VocabularyReview> addWord({
+    required String word,
+    required String partOfSpeech,
+    required String definition,
+    required String example,
+    required String level,
+    int? tier,
+  }) =>
+      _api.post<VocabularyReview>(
+        '/v1/vocabulary',
+        <String, Object?>{
+          'word': word,
+          'partOfSpeech': partOfSpeech,
+          'definition': definition,
+          'example': example,
+          'level': level,
+          if (tier != null) 'tier': tier,
+        },
+        VocabularyReview.fromJson,
+      );
 
   Future<void> _flushPending() async {
     final preferences = await SharedPreferences.getInstance();
@@ -92,7 +114,10 @@ class VocabularyRepository {
       try {
         await _api.post<Object?>(
           '/v1/vocabulary/${action['itemId']}/review',
-          <String, Object?>{'grade': action['grade']},
+          <String, Object?>{
+            'grade': action['grade'],
+            if (action['mode'] != null) 'mode': action['mode'],
+          },
           (json) => json,
         );
       } on ApiException catch (error) {

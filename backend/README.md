@@ -1,12 +1,14 @@
 # Toungular API contracts
 
-The API serves Toungular's original English-learning data and user-owned profile/practice records. It has no configured speech, pronunciation, AI, or Play Billing provider. Those operations return clear unavailable states; the API does not fabricate provider output.
+The API serves Toungular's original English-learning data and user-owned profile/practice records. No pronunciation, AI, or Play Billing provider is configured; those operations return clear unavailable states and the API does not fabricate provider output. Text-to-speech and speech-to-text are optional and activate only when their server-side credentials are present.
 
 ## Local data
 
 Copy `.env.example` to `.env`, then run `npm run prisma:generate`, `npm run prisma:migrate:dev`, `npm run seed`, and `npm run dev`. The default `DATABASE_URL` is SQLite at `backend/storage/toungular.db`. `PORT`, `DATABASE_URL`, `JWT_SECRET` (at least 32 characters), and `MOBILE_ORIGIN` are validated at startup.
 
 For PostgreSQL, use a `postgresql://` `DATABASE_URL`, generate with `npm run prisma:generate:postgres`, and deploy its provider-specific migration history with `npm run prisma:migrate:postgres`. Prisma records deployed migrations, so the command is safe to rerun. Application service and route contracts do not change.
+
+Voice is optional. Set `GOOGLE_TTS_API_KEY`, `ELEVENLABS_API_KEY` plus `ELEVENLABS_VOICE_ID`, `OPENAI_API_KEY`, or `DEEPGRAM_API_KEY` to enable the matching TTS/STT provider; `GET /v1/voice/providers` reflects what is active. Synthesized MP3s are cached under `VOICE_CACHE_DIR` (default `backend/storage/audio-cache`).
 
 ## JSON envelope and errors
 
@@ -25,13 +27,15 @@ Successful endpoints return `{ "data": ... }`. Errors return `{ "error": { "code
 | GET | `/v1/courses` | — | ordered courses and learner completion state |
 | GET | `/v1/lessons/:lessonId` | — | lesson content and learner completion state |
 | POST | `/v1/lessons/:lessonId/complete` | — | lesson id and completion timestamp |
-| GET | `/v1/vocabulary/due` | — | up to 20 due or unseen vocabulary reviews |
-| POST | `/v1/vocabulary/:itemId/review` | `grade`: `again`, `hard`, `good`, or `easy` | updated due date and interval |
+| GET | `/v1/vocabulary/due` | — | up to 20 due or unseen vocabulary reviews with recall mode and cloze |
+| POST | `/v1/vocabulary` | `word`, `partOfSpeech`, `definition`, `example`, `level`, optional `tier` | newly scheduled manual word |
+| POST | `/v1/vocabulary/encounters` | `word`, `source` (`lesson`, `coach`, `manual`), optional `context` | schedules the word when it exists in the catalog |
+| POST | `/v1/vocabulary/:itemId/review` | `grade`: `again`, `hard`, `good`, or `easy`; optional `mode` | updated due date, interval, ease factor, and lapses |
 | GET | `/v1/placement/questions` | — | fixed 20-item vocabulary recall check |
 | POST | `/v1/placement/vocabulary` | 20 `{itemId, word}` answers | score, initial-baseline/follow-up flag, and change from the first check |
 | POST | `/v1/speaking-sessions` | `type`, `prompt` | created speaking session |
 | PUT | `/v1/speaking-sessions/:id/transcript` | `transcript` | saved learner transcript |
-| POST | `/v1/speaking-sessions/:id/analyze` | `durationSeconds` | transparent word-count, pace, filler, and vocabulary-variety estimates; pronunciation unavailable |
+| POST | `/v1/speaking-sessions/:id/analyze` | `durationSeconds`, optional `transcript`, optional `pauses` (seconds) | transparent word-count, pace, filler, pause, and vocabulary-variety estimates with WPM trend; pronunciation unavailable |
 | GET | `/v1/speaking-sessions` | — | last 30 practice sessions |
 | GET | `/v1/coach/scenarios` | — | original practice scenario catalog |
 | POST | `/v1/conversations` | `scenarioId` | created text practice conversation |
@@ -44,15 +48,34 @@ Successful endpoints return `{ "data": ... }`. Errors return `{ "error": { "code
 | POST | `/v1/ielts/attempts/:id/responses` | `sectionId`, `transcript` | saved section response |
 | POST | `/v1/ielts/attempts/:id/finish` | — | practice-complete summary; no official band score |
 | GET | `/v1/ielts/attempts` | — | learner's attempt history |
-| GET | `/v1/progress` | — | lesson/review/speaking totals and streak summary |
+| GET | `/v1/progress` | — | lesson/review/speaking totals, fluency trend, and streak summary |
 | GET | `/v1/streak` | — | current/longest activity streak and saved reminder schedule |
 | PUT | `/v1/reminders` | `time` (`HH:mm` or null), `days` (0 Sunday through 6 Saturday) | saved account reminder preference |
+| GET | `/v1/exposure` | — | seven comfort levels with session counts and unlock state |
+| POST | `/v1/exposure/:level/complete` | — | records one session; requires the previous level to be complete |
+| GET | `/v1/voice/providers` | — | whether TTS/STT are configured and which providers are active |
+| POST | `/v1/voice/tts` | `text`, optional `provider`, `voiceId`, `language`, `speed` | MP3 audio bytes; `503` when no TTS provider is configured |
+| POST | `/v1/voice/stt` | raw audio body; optional `provider`/`contentType` query | transcript text; `503` when no STT provider is configured |
+| GET | `/v1/shadow/passages` | — | speech shadowing passage catalog with audio and pacing targets |
+| GET | `/v1/shadow/passages/:id` | — | detailed passage for auditory-vocal shadowing |
+| POST | `/v1/shadow/analyze` | `passageId`, `durationSeconds`, `transcript`, `pauses` | tempo alignment, pause composure, pacing deviation, and vocabulary matching |
+| GET | `/v1/content/articles` | optional `level` query | authentic $i+1$ CEFR-graded articles |
+| GET | `/v1/content/articles/:id` | — | full article text, key vocabulary, comprehension questions |
+| POST | `/v1/content/articles/:id/evaluate` | `text` | output-forcing evaluation, target vocabulary usage, and comprehension feedback |
+| POST | `/v1/decision/affective-state` | `transcript`, `durationSeconds`, `pauseCount`, `wpm` | Krashen affective anxiety triage, confidence score, scaffolding recommendation via Jev |
+| POST | `/v1/decision/calibrate-level` | `transcript`, optional `targetWords` | adaptive $i+1$ CEFR calibration, lexical range, syntactic complexity via Jev |
+| GET | `/v1/mastery/profile` | — | 4-axis skill XP (fluency, lexical, acoustic, interaction), rank tier, freeze tokens |
+| POST | `/v1/mastery/award` | `category`, `points`, `reason` | awards XP to specific communicative dimension, triggers level-up & freeze token rewards |
+| POST | `/v1/mastery/freeze-token` | — | consumes 1 freeze token to safeguard daily streak without anxiety |
+| GET | `/v1/pronunciation/pairs` | optional `category`, `level` queries | minimal pairs phonetics catalog with IPA and articulatory mechanics |
+| GET | `/v1/pronunciation/pairs/:id` | — | detailed minimal pair with sentence drill and biomechanical guide |
+| POST | `/v1/pronunciation/pairs/:id/analyze` | `targetChoice` ('A'/'B'), `transcript`, `durationSeconds` | acoustic accuracy, phoneme substitution confusion detection, articulatory correction tip, +XP |
 | GET | `/v1/entitlements` | — | active Toungular Plus entitlement, or free plan |
 | POST | `/v1/billing/verify` | `productId`, `purchaseToken` | explicit `BILLING_NOT_CONFIGURED` until a Toungular verifier is supplied |
 | POST | `/v1/billing/restore` | `receipts` | explicit unavailable response until a Toungular verifier is supplied |
 | GET | `/v1/referrals/me` | — | Toungular referral code and count |
 | POST | `/v1/referrals/redeem` | `code` | associates one referral code with this account; no reward is configured |
 
-The review scheduler uses day intervals: `again` resets to 1 day, `hard` increases slowly, `good` advances 1 → 3 → doubled intervals, and `easy` starts at 3 days then triples. Refresh tokens are opaque, stored only as hashes, and revoked when rotated. Raw speaking audio is not uploaded or stored by this API; the client stores temporary local recordings and sends an editable transcript for estimate generation.
+The review scheduler is a modified SM-2: `again` resets repetitions, records a lapse, and returns in 1 day; `hard`, `good`, and `easy` grow the interval by ease factor, with harder recall modes earning a small ease bonus. Lesson completion schedules up to six mapped words, and coach turns schedule up to three known catalog words. Refresh tokens are opaque, stored only as hashes, and revoked when rotated. Raw speaking audio is not stored by this API; without a configured STT provider the client sends an editable transcript, and with one the recording is forwarded for transcription only.
 
 Account deletion is available to a signed-in learner through `DELETE /v1/me` and the client account screen. The API cascades the account's profile and learning/practice records and unlinks referrals that point to the deleted account. A public account-deletion request URL and Toungular privacy policy still need to be published before release.

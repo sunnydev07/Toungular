@@ -21,9 +21,9 @@ The email-authenticated API, curriculum, review queue, speaking sessions, coach 
 
 Learners can review saved IELTS-style attempts and resume unfinished sets. Account deletion is available in the account screen; publishing the required public deletion URL and privacy policy remains a release task.
 
-Progress includes a repeatable 20-word recall check and two fixed speaking prompts. Pace values are practice estimates, not a proficiency certification.
+Progress includes a repeatable 20-word recall check, a modified SM-2 vocabulary queue with four recall modes, and two fixed speaking prompts. Pace values are practice estimates, not a proficiency certification. The comfort path adds seven graduated exposure levels with three sessions per level.
 
-Speaking recordings remain in temporary app-private storage. Transcripts are learner-entered/editable. The app labels transcript metrics as practice estimates and shows pronunciation/AI responses as unavailable until Toungular configures providers.
+Speaking recordings remain in temporary app-private storage. Transcripts are learner-entered/editable; when the API has a speech-to-text provider configured, the app offers one-tap transcription and does not retain the uploaded recording. The app labels transcript metrics as practice estimates and shows pronunciation/AI responses as unavailable until Toungular configures providers.
 
 ## Android output
 
