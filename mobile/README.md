@@ -13,7 +13,7 @@ Use the computer's LAN IP instead of `10.0.2.2` on a physical Android device. De
 
 ## Configuration
 
-- `API_BASE_URL` — Toungular API base URL. Releases require HTTPS.
+- `API_BASE_URL` — Toungular API base URL. Debug builds default to `http://10.0.2.2:3000`; release builds fail fast unless it is set to an `https://` URL. Releases require HTTPS.
 - `ADS_ENABLED` — defaults to `false`. When enabled, the app requests UMP consent before requesting test ads.
 - `ADMOB_BANNER_ID` and `ADMOB_REWARDED_ID` — default to Google's published test units. Replace them and the test app ID in `android/app/src/main/AndroidManifest.xml` only with IDs from Toungular's own AdMob account.
 
