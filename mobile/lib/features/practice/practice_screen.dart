@@ -194,9 +194,14 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                       ?.copyWith(color: Colors.white),
                 ),
                 const SizedBox(height: ToungularSpace.s),
-                Row(
+                // Wrap, not Row: at 320dp with 200% text the level chip alone
+                // fills the row, so the copy moves to its own line instead.
+                Wrap(
+                  spacing: ToungularSpace.xs,
+                  runSpacing: ToungularSpace.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: <Widget>[
-                    if (level != null) ...<Widget>[
+                    if (level != null)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -215,20 +220,23 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: ToungularSpace.xs),
-                    ],
-                    const Icon(
-                      Icons.mic_none_rounded,
-                      size: 16,
-                      color: ToungularColor.lime,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        'Record, get a transcript, then try again with one tip.',
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(color: Colors.white70, fontSize: 13),
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        const Icon(
+                          Icons.mic_none_rounded,
+                          size: 16,
+                          color: ToungularColor.lime,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            'Record, get a transcript, then try again with one tip.',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: Colors.white70, fontSize: 13),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

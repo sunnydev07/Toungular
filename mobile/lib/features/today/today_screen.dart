@@ -40,8 +40,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     Future<T?> soft<T>(Future<T> request) =>
         request.then<T?>((value) => value, onError: (_) => null);
 
-    final summaryFuture = soft(
-      ref.read(progressRepositoryProvider).loadSummary(),
+    // Same source as the Progress tab's streak card, so the two never disagree.
+    final streakFuture = soft(
+      ref.read(progressRepositoryProvider).loadStreak(),
     );
     final historyFuture = soft(ref.read(speakingRepositoryProvider).history());
     final dueFuture = soft(
@@ -50,7 +51,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
 
     return _TodayData(
       roadmap: await roadmapFuture,
-      summary: await summaryFuture,
+      streak: await streakFuture,
       history: await historyFuture ?? const <SpeakingSessionSummary>[],
       due: await dueFuture ?? const <VocabularyReview>[],
     );
@@ -154,7 +155,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         ToungularSpace.xl,
       ),
       children: <Widget>[
-        _GreetingRow(email: email, streak: data.summary?.currentStreak ?? 0),
+        _GreetingRow(email: email, streak: data.streak?.currentDays ?? 0),
         const SizedBox(height: ToungularSpace.m),
         if (roadmap.source == RoadmapSource.cached)
           Padding(
@@ -214,13 +215,13 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
 class _TodayData {
   const _TodayData({
     required this.roadmap,
-    this.summary,
+    this.streak,
     this.history = const <SpeakingSessionSummary>[],
     this.due = const <VocabularyReview>[],
   });
 
   final Roadmap roadmap;
-  final ProgressSummary? summary;
+  final HabitSnapshot? streak;
   final List<SpeakingSessionSummary> history;
   final List<VocabularyReview> due;
 }
@@ -360,6 +361,7 @@ class _GreetingRow extends StatelessWidget {
         const SizedBox(width: ToungularSpace.s),
         Semantics(
           label: '$streak day streak',
+          excludeSemantics: true,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
@@ -482,6 +484,7 @@ class _GoalCard extends StatelessWidget {
           children: <Widget>[
             Semantics(
               label: '${week.sessions} of ${week.target} sessions this week',
+              excludeSemantics: true,
               child: SizedBox(
                 width: 84,
                 height: 84,
@@ -525,6 +528,7 @@ class _GoalCard extends StatelessWidget {
                       return Semantics(
                         label:
                             '${_names[index]}: ${done ? 'session completed' : 'no session'}',
+                        excludeSemantics: true,
                         child: Column(
                           children: <Widget>[
                             Text(
@@ -699,39 +703,38 @@ class _WeekCard extends StatelessWidget {
           children: <Widget>[
             Text('Your week', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: ToungularSpace.m),
-            SizedBox(
-              height: 72,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: List<Widget>.generate(7, (index) {
-                  final done = week.days[index];
-                  return Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: <Widget>[
-                          Container(
-                            height: done ? 56 : 14,
-                            decoration: BoxDecoration(
-                              color: done
-                                  ? ToungularColor.leaf
-                                  : ToungularColor.sand,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+            // No fixed height: the bars keep their 56/14 heights and the day
+            // label adds its own space, so large text scales cannot clip it.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List<Widget>.generate(7, (index) {
+                final done = week.days[index];
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: <Widget>[
+                        Container(
+                          height: done ? 56 : 14,
+                          decoration: BoxDecoration(
+                            color: done
+                                ? ToungularColor.leaf
+                                : ToungularColor.sand,
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _letters[index],
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(fontSize: 12),
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _letters[index],
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontSize: 12),
+                        ),
+                      ],
                     ),
-                  );
-                }),
-              ),
+                  ),
+                );
+              }),
             ),
             const SizedBox(height: ToungularSpace.s),
             Text(footer, style: Theme.of(context).textTheme.bodyMedium),
