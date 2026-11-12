@@ -38,6 +38,7 @@ class _CoachConversationScreenState
   String? _playingTurnId;
   Duration _recordDuration = Duration.zero;
   Timer? _timer;
+  String? _recordingPath;
 
   String? _cue;
   String? _lastRecast;
@@ -55,11 +56,21 @@ class _CoachConversationScreenState
   @override
   void dispose() {
     _timer?.cancel();
+    if (_recording) unawaited(_recorder.cancel());
     _player.dispose();
     _recorder.dispose();
     _textController.dispose();
     _scrollController.dispose();
     ref.read(voiceActivityProvider.notifier).setActive(false);
+    final path = _recordingPath;
+    if (path != null) {
+      try {
+        final file = File(path);
+        if (file.existsSync()) {
+          file.deleteSync();
+        }
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -107,6 +118,7 @@ class _CoachConversationScreenState
   Future<void> _toggleRecording() async {
     if (_recording) {
       final path = await _recorder.stop();
+      _recordingPath = null;
       _timer?.cancel();
       ref.read(voiceActivityProvider.notifier).setActive(false);
       setState(() {
@@ -129,6 +141,12 @@ class _CoachConversationScreenState
               () => _error = 'Audio transcription failed. You can type your response instead.',
             );
         } finally {
+          try {
+            final file = File(path);
+            if (await file.exists()) {
+              await file.delete();
+            }
+          } catch (_) {}
           if (mounted) setState(() => _transcribing = false);
         }
       } else {
@@ -144,6 +162,7 @@ class _CoachConversationScreenState
       }
       final path =
           '${Directory.systemTemp.path}${Platform.pathSeparator}toungular-coach-${DateTime.now().millisecondsSinceEpoch}.m4a';
+      _recordingPath = path;
       await _recorder.start(
         const RecordConfig(encoder: AudioEncoder.aacLc),
         path: path,

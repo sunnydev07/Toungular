@@ -39,6 +39,7 @@ class _ContentScreenState extends ConsumerState<ContentScreen> {
   bool _transcribing = false;
   Duration _recordDuration = Duration.zero;
   Timer? _timer;
+  String? _recordingPath;
 
   final Map<String, int> _selectedAnswers = <String, int>{};
   bool _evaluating = false;
@@ -59,10 +60,20 @@ class _ContentScreenState extends ConsumerState<ContentScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    if (_recording) unawaited(_recorder.cancel());
     _player.dispose();
     _recorder.dispose();
     _outputController.dispose();
     ref.read(voiceActivityProvider.notifier).setActive(false);
+    final path = _recordingPath;
+    if (path != null) {
+      try {
+        final file = File(path);
+        if (file.existsSync()) {
+          file.deleteSync();
+        }
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -111,6 +122,7 @@ class _ContentScreenState extends ConsumerState<ContentScreen> {
   Future<void> _toggleRecording() async {
     if (_recording) {
       final path = await _recorder.stop();
+      _recordingPath = null;
       _timer?.cancel();
       ref.read(voiceActivityProvider.notifier).setActive(false);
       setState(() {
@@ -133,6 +145,12 @@ class _ContentScreenState extends ConsumerState<ContentScreen> {
               () => _error = 'Transcription failed. Please type your response.',
             );
         } finally {
+          try {
+            final file = File(path);
+            if (await file.exists()) {
+              await file.delete();
+            }
+          } catch (_) {}
           if (mounted) setState(() => _transcribing = false);
         }
       } else {
@@ -146,6 +164,7 @@ class _ContentScreenState extends ConsumerState<ContentScreen> {
       }
       final path =
           '${Directory.systemTemp.path}${Platform.pathSeparator}toungular-input-${DateTime.now().millisecondsSinceEpoch}.m4a';
+      _recordingPath = path;
       await _recorder.start(
         const RecordConfig(encoder: AudioEncoder.aacLc),
         path: path,

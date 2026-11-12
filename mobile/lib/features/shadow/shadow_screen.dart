@@ -60,7 +60,29 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
     unawaited(_userPlayer.dispose());
     _transcriptController.dispose();
     ref.read(voiceActivityProvider.notifier).setActive(false);
+    final userPath = _userAudioPath;
+    if (userPath != null) {
+      try {
+        final file = File(userPath);
+        if (file.existsSync()) {
+          file.deleteSync();
+        }
+      } catch (_) {}
+    }
     super.dispose();
+  }
+
+  Future<void> _cleanupUserAudio() async {
+    final path = _userAudioPath;
+    if (path != null) {
+      _userAudioPath = null;
+      try {
+        final file = File(path);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (_) {}
+    }
   }
 
   Future<void> _initData() async {
@@ -136,6 +158,8 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
   Future<void> _startRecording() async {
     final passage = _currentPassage;
     if (passage == null) return;
+
+    await _cleanupUserAudio();
 
     setState(() {
       _busy = true;
@@ -330,13 +354,13 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
                       ),
                     )
                     .toList(growable: false),
-                onChanged: (id) {
+                onChanged: (id) async {
                   if (id == null) return;
+                  await _cleanupUserAudio();
                   setState(() {
                     _currentPassage = _passages.firstWhere((p) => p.id == id);
                     _modelAudioPath = null;
                     _analysis = null;
-                    _userAudioPath = null;
                     _transcriptController.clear();
                   });
                 },

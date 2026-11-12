@@ -53,6 +53,15 @@ class _PronunciationLabScreenState
     unawaited(_recorder.dispose());
     unawaited(_audioPlayer.dispose());
     _manualTranscriptController.dispose();
+    final path = _recordingPath;
+    if (path != null) {
+      try {
+        final file = File(path);
+        if (file.existsSync()) {
+          file.deleteSync();
+        }
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -114,6 +123,14 @@ class _PronunciationLabScreenState
   Future<void> _startRecording() async {
     try {
       if (await _recorder.hasPermission()) {
+        if (_recordingPath != null) {
+          try {
+            final oldFile = File(_recordingPath!);
+            if (await oldFile.exists()) {
+              await oldFile.delete();
+            }
+          } catch (_) {}
+        }
         final path =
             '${Directory.systemTemp.path}${Platform.pathSeparator}phoneme_drill_${DateTime.now().millisecondsSinceEpoch}.m4a';
         await _recorder.start(
@@ -194,6 +211,17 @@ class _PronunciationLabScreenState
         _error = 'Evaluation error: $e';
         _evaluating = false;
       });
+    } finally {
+      final path = _recordingPath;
+      if (path != null) {
+        _recordingPath = null;
+        try {
+          final file = File(path);
+          if (await file.exists()) {
+            await file.delete();
+          }
+        } catch (_) {}
+      }
     }
   }
 

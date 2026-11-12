@@ -112,6 +112,14 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
     _transcriptController.dispose();
     _pulse.dispose();
     ref.read(voiceActivityProvider.notifier).setActive(false);
+    if (_audioPath != null && (_feedback == null || _isAnonymous)) {
+      try {
+        final file = File(_audioPath!);
+        if (file.existsSync()) {
+          file.deleteSync();
+        }
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -141,6 +149,13 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
       _silenceStarted = null;
     });
     try {
+      final oldPath = _audioPath;
+      if (oldPath != null && (_feedback == null || _isAnonymous)) {
+        try {
+          final file = File(oldPath);
+          if (await file.exists()) await file.delete();
+        } catch (_) {}
+      }
       final allowed = await _recorder.hasPermission();
       if (!allowed) {
         setState(
@@ -346,6 +361,12 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
         transcript: _isAnonymous ? transcript : null,
         pauses: _pauses,
       );
+      if (_isAnonymous && _audioPath != null) {
+        try {
+          final file = File(_audioPath!);
+          if (await file.exists()) await file.delete();
+        } catch (_) {}
+      }
       if (widget.ieltsAttemptId != null && widget.ieltsSectionId != null) {
         await ref
             .read(ieltsRepositoryProvider)
