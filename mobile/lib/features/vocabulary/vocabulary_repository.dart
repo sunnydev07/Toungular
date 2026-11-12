@@ -19,6 +19,7 @@ class VocabularyRepository {
 
   static const _cachePrefix = 'toungular.vocab-due.v2.';
   static const _queuePrefix = 'toungular.vocab-actions.v1.';
+  static const int maxRetryCount = 3;
   final ApiClient _api;
   final SessionStore _sessions;
 
@@ -132,7 +133,19 @@ class VocabularyRepository {
         );
       } on ApiException catch (error) {
         if (error.failure == ApiFailure.unauthorized) rethrow;
-        pending.add(action);
+        final retries = (action['retryCount'] as int? ?? 0) + 1;
+        if (retries < maxRetryCount) {
+          final updated = Map<String, Object?>.from(action);
+          updated['retryCount'] = retries;
+          pending.add(updated);
+        }
+      } catch (_) {
+        final retries = (action['retryCount'] as int? ?? 0) + 1;
+        if (retries < maxRetryCount) {
+          final updated = Map<String, Object?>.from(action);
+          updated['retryCount'] = retries;
+          pending.add(updated);
+        }
       }
     }
     if (pending.isEmpty) {
@@ -146,10 +159,23 @@ class VocabularyRepository {
     final preferences = await SharedPreferences.getInstance();
     final queueKey = await _actionQueueKey();
     final encoded = preferences.getString(queueKey);
-    final actions = encoded == null
-        ? <dynamic>[]
-        : jsonDecode(encoded) as List<dynamic>;
-    actions.add(action);
+    List<dynamic> actions;
+    if (encoded == null) {
+      actions = <dynamic>[];
+    } else {
+      try {
+        final decoded = jsonDecode(encoded);
+        actions = decoded is List<dynamic> ? decoded : <dynamic>[];
+      } on FormatException {
+        actions = <dynamic>[];
+      } on TypeError {
+        actions = <dynamic>[];
+      }
+    }
+    actions.add(<String, Object?>{
+      ...action,
+      'retryCount': action['retryCount'] ?? 0,
+    });
     await preferences.setString(queueKey, jsonEncode(actions));
   }
 
