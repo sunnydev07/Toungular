@@ -158,9 +158,11 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
       }
       final allowed = await _recorder.hasPermission();
       if (!allowed) {
-        setState(
-          () => _error = 'Microphone access is needed to record your answer. You can change this in Android settings.',
-        );
+        if (mounted) {
+          setState(
+            () => _error = 'Microphone access is needed to record your answer. You can change this in Android settings.',
+          );
+        }
         return;
       }
       final repository = ref.read(speakingRepositoryProvider);
@@ -250,9 +252,11 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
         unawaited(_transcribe());
       }
     } catch (_) {
-      setState(
-        () => _error = 'The recording could not be saved. You can discard it and start again.',
-      );
+      if (mounted) {
+        setState(
+          () => _error = 'The recording could not be saved. You can discard it and start again.',
+        );
+      }
     } finally {
       if (mounted)
         setState(() {
@@ -296,9 +300,11 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
   Future<void> _playRecording() async {
     final path = _audioPath;
     if (path == null || !await File(path).exists()) {
-      setState(
-        () => _error = 'This recording is no longer available on this device.',
-      );
+      if (mounted) {
+        setState(
+          () => _error = 'This recording is no longer available on this device.',
+        );
+      }
       return;
     }
     try {
@@ -313,11 +319,14 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
   Future<void> _transcribe() async {
     final path = _audioPath;
     if (path == null || !await File(path).exists()) {
-      setState(
-        () => _error = 'This recording is no longer available on this device.',
-      );
+      if (mounted) {
+        setState(
+          () => _error = 'This recording is no longer available on this device.',
+        );
+      }
       return;
     }
+    if (!mounted) return;
     setState(() {
       _transcribing = true;
       _error = null;
@@ -343,9 +352,11 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
     final sessionId = _sessionId;
     final transcript = _transcriptController.text.trim();
     if (sessionId == null || transcript.isEmpty) {
-      setState(
-        () => _error = 'Add the words you said so Toungular can show transcript-based feedback.',
-      );
+      if (mounted) {
+        setState(
+          () => _error = 'Add the words you said so Toungular can show transcript-based feedback.',
+        );
+      }
       return;
     }
     setState(() {
@@ -418,17 +429,19 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
 
   /// The one primary action from feedback: keep the tip, drop the take, record again.
   Future<void> _retryWithTip() async {
-    setState(() => _tip = _feedback?.nextStep);
+    if (mounted) setState(() => _tip = _feedback?.nextStep);
     await _discard();
     if (mounted) await _start();
   }
 
   Future<void> _nextPrompt() async {
-    setState(() {
-      _tip = null;
-      _promptIndex = (_promptIndex + 1) % speakingPrompts.length;
-      _promptOverride = speakingPrompts[_promptIndex].text;
-    });
+    if (mounted) {
+      setState(() {
+        _tip = null;
+        _promptIndex = (_promptIndex + 1) % speakingPrompts.length;
+        _promptOverride = speakingPrompts[_promptIndex].text;
+      });
+    }
     await _discard();
   }
 
