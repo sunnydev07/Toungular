@@ -95,13 +95,15 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
       setState(() {
         _passages = passages;
         _sttAvailable = status.sttAvailable;
-        if (widget.passageId != null) {
+        if (passages.isEmpty) {
+          _currentPassage = null;
+        } else if (widget.passageId != null) {
           _currentPassage = passages.firstWhere(
             (p) => p.id == widget.passageId,
             orElse: () => passages.first,
           );
         } else {
-          _currentPassage = passages.isNotEmpty ? passages.first : null;
+          _currentPassage = passages.first;
         }
         _loading = false;
       });
