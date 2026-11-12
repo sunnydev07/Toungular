@@ -28,6 +28,43 @@ import 'home_shell.dart';
 
 final GoRouter appRouter = GoRouter(
   initialLocation: '/',
+  redirect: (context, state) {
+    try {
+      final container = ProviderScope.containerOf(context);
+      final session = container.read(sessionControllerProvider);
+      if (session.isLoading) return null;
+      final path = state.matchedLocation;
+      final isAuthRoute = path == '/auth' || path == '/';
+      final isOnboardingRoute = path == '/onboarding';
+
+      if (!session.isSignedIn) {
+        return isAuthRoute ? null : '/auth';
+      }
+      if (session.requiresOnboarding) {
+        return isOnboardingRoute ? null : '/onboarding';
+      }
+      if (path == '/auth') {
+        return '/home';
+      }
+    } catch (_) {}
+    return null;
+  },
+  errorBuilder: (context, state) => Scaffold(
+    appBar: AppBar(title: const Text('Page not found')),
+    body: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          const Text('The requested page could not be found.'),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () => context.go('/'),
+            child: const Text('Back to Home'),
+          ),
+        ],
+      ),
+    ),
+  ),
   routes: <RouteBase>[
     GoRoute(path: '/', builder: (context, state) => const AppEntryScreen()),
     GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
@@ -82,13 +119,31 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/ielts/response',
       builder: (context, state) {
-        final args = state.extra! as IeltsResponseArgs;
+        final extra = state.extra;
+        if (extra is! IeltsResponseArgs) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('IELTS Practice')),
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Missing IELTS response details.'),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: () => context.go('/ielts'),
+                    child: const Text('Go to IELTS'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         return SpeakingScreen(
-          prompt: args.section.prompt,
+          prompt: extra.section.prompt,
           type: 'ielts',
-          maxDurationSeconds: args.section.responseSeconds,
-          ieltsAttemptId: args.attemptId,
-          ieltsSectionId: args.section.id,
+          maxDurationSeconds: extra.section.responseSeconds,
+          ieltsAttemptId: extra.attemptId,
+          ieltsSectionId: extra.section.id,
         );
       },
     ),
