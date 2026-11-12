@@ -45,12 +45,12 @@ export type OutputEvaluationResult = {
   sentenceCount: number;
   targetWordsUsed: string[];
   targetWordsMissing: string[];
-  grammarScore: number;
+  mechanicsScore: number;
   vocabularyScore: number;
   overallScore: number;
   strengths: string[];
   suggestions: string[];
-  recast: string;
+  recast: string | null;
 };
 
 const ARTICLES: ContentArticle[] = [
@@ -350,16 +350,21 @@ export class ContentService {
     const sentences = cleaned.split(/[.!?]+/).map((s) => s.trim()).filter(Boolean);
     const sentenceCount = Math.max(1, sentences.length);
 
-    // Identify target words used (matching lemma or prefix)
-    const lowerText = cleaned.toLowerCase();
+    // Whole-word lemma matching. The previous prefix check counted unrelated
+    // words (e.g. "art" inside "article") and inflated the vocabulary score.
     const targetWordsUsed: string[] = [];
     const targetWordsMissing: string[] = [];
+    const targetPattern = (word: string): RegExp => {
+      const escaped = word
+        .trim()
+        .toLowerCase()
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\s+/g, '\\s+');
+      return new RegExp(`(^|[^a-z])${escaped}(?:s|es|ed|ing|ly|ies)?(?![a-z])`, 'i');
+    };
 
     for (const item of article.vocabulary) {
-      const root = item.word.toLowerCase();
-      // Match whole word or common inflected forms (e.g. fresh, freshly; curious, curiosity)
-      const stem = root.length > 5 ? root.slice(0, -2) : root;
-      if (lowerText.includes(stem)) {
+      if (targetPattern(item.word).test(cleaned)) {
         targetWordsUsed.push(item.word);
       } else {
         targetWordsMissing.push(item.word);
@@ -372,20 +377,21 @@ export class ContentService {
     const lengthRatio = Math.min(1.0, wordCount / article.outputPrompt.requiredWordCount);
     const vocabularyScore = Math.round(targetRatio * 60 + lengthRatio * 40);
 
-    // Grammar score: sentence structure, variety, capitalization
-    let grammarDeductions = 0;
+    // Mechanics score: capitalization, length, and sentence count only. This
+    // is not a grammar judgment, and the UI labels it "Mechanics".
+    let mechanicsDeductions = 0;
     if (sentences.some((s) => s.length > 0 && s[0] !== s[0]?.toUpperCase())) {
-      grammarDeductions += 10;
+      mechanicsDeductions += 10;
     }
     if (wordCount < article.outputPrompt.requiredWordCount) {
-      grammarDeductions += 15;
+      mechanicsDeductions += 15;
     }
     if (sentenceCount < 2) {
-      grammarDeductions += 10;
+      mechanicsDeductions += 10;
     }
-    const grammarScore = Math.max(40, Math.min(100, 100 - grammarDeductions));
+    const mechanicsScore = Math.max(40, Math.min(100, 100 - mechanicsDeductions));
 
-    const overallScore = Math.round(vocabularyScore * 0.6 + grammarScore * 0.4);
+    const overallScore = Math.round(vocabularyScore * 0.6 + mechanicsScore * 0.4);
 
     const strengths: string[] = [];
     const suggestions: string[] = [];
@@ -403,16 +409,12 @@ export class ContentService {
       suggestions.push(`Try incorporating more target vocabulary, such as: ${targetWordsMissing.slice(0, 2).join(', ')}.`);
     }
 
-    // Recast construction (Swain Output Hypothesis feedback via System Two Gemini 3.5 Flash-Lite)
-    let recast = `Refined model: "${cleaned} This demonstrated clear engagement with the theme of ${article.topic.toLowerCase()}."`;
-    if (this.env?.googleApiKey) {
-      try {
-        const liveRecast = await this.generateGeminiRecast(article, cleaned);
-        if (liveRecast) recast = liveRecast;
-      } catch {
-        // Fall back gracefully
-      }
-    }
+    // Recast (Swain Output Hypothesis): only a real model rewrite is shown.
+    // Appending boilerplate to the learner's own text would fabricate feedback,
+    // so no configured provider means no recast.
+    const recast = this.env?.googleApiKey
+      ? await this.generateGeminiRecast(article, cleaned).catch(() => null)
+      : null;
 
     // Optionally record skill progress in database if user exists
     if (userId) {
@@ -436,7 +438,7 @@ export class ContentService {
       sentenceCount,
       targetWordsUsed,
       targetWordsMissing,
-      grammarScore,
+      mechanicsScore,
       vocabularyScore,
       overallScore,
       strengths,

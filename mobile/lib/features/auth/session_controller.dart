@@ -2,8 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/network/api_client.dart';
-import '../../core/storage/session_store.dart';
+import '../../core/network/session_manager.dart';
 import '../../shared/models/learning_models.dart';
 import 'auth_repository.dart';
 
@@ -32,51 +31,37 @@ class SessionState {
 class SessionController extends Notifier<SessionState> {
   @override
   SessionState build() {
-    scheduleMicrotask(() {
-      _restore();
+    final sessions = ref.read(sessionManagerProvider);
+    final subscription = sessions.expired.listen((_) {
+      state = const SessionState.signedOut();
     });
+    ref.onDispose(subscription.cancel);
+    scheduleMicrotask(_restore);
     return const SessionState.loading();
   }
 
   Future<void> _restore() async {
-    final store = ref.read(sessionStoreProvider);
-    LearnerSession? saved;
     try {
-      saved = await store.readSession();
+      final restored = await ref.read(sessionManagerProvider).restore();
+      state = restored == null
+          ? const SessionState.signedOut()
+          : SessionState.signedIn(restored);
     } catch (_) {
       state = const SessionState.signedOut();
-      return;
-    }
-    if (saved == null) {
-      state = const SessionState.signedOut();
-      return;
-    }
-
-    try {
-      final refreshed = await ref
-          .read(authRepositoryProvider)
-          .refresh(saved.refreshToken);
-      state = SessionState.signedIn(refreshed);
-    } on ApiException catch (error) {
-      if (error.isUnauthorized) {
-        await store.clearSession();
-        state = const SessionState.signedOut();
-      } else {
-        state = SessionState.signedIn(saved);
-      }
-    } catch (_) {
-      state = SessionState.signedIn(saved);
     }
   }
 
   void accept(LearnerSession session) {
+    ref.read(sessionManagerProvider).accept(session);
     state = SessionState.signedIn(session);
   }
 
   void updateProfile(LearnerProfile profile) {
     final current = state.session;
     if (current != null) {
-      state = SessionState.signedIn(current.withProfile(profile));
+      final next = current.withProfile(profile);
+      ref.read(sessionManagerProvider).accept(next);
+      state = SessionState.signedIn(next);
     }
   }
 

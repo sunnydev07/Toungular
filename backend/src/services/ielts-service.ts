@@ -56,11 +56,12 @@ export class IeltsService {
     });
   }
 
-  public async history(userId: string) {
+  public async history(userId: string, limit = 20, offset = 0) {
     return this.database.ieltsAttempt.findMany({
       where: { userId },
       orderBy: { startedAt: 'desc' },
-      take: 20,
+      take: limit,
+      skip: offset,
       include: { responses: { orderBy: { createdAt: 'asc' } } },
     });
   }

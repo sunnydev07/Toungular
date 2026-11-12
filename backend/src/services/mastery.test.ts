@@ -18,6 +18,7 @@ function createMockPrisma() {
 
   return {
     masteryXp: {
+      findUnique: async () => null,
       upsert: async () => ({ ...state }),
       update: async ({ data }: any) => {
         if (data.fluencyXp?.increment) state.fluencyXp += data.fluencyXp.increment;

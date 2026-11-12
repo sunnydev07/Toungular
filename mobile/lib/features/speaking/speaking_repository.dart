@@ -1,9 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/storage/session_store.dart';
 import '../../shared/models/learning_models.dart';
+import '../auth/session_controller.dart';
 
 final speakingRepositoryProvider = Provider<SpeakingRepository>(
   (ref) => SpeakingRepository(
@@ -11,6 +13,22 @@ final speakingRepositoryProvider = Provider<SpeakingRepository>(
     ref.watch(sessionStoreProvider),
   ),
 );
+
+/// Shared speaking history for Today, Practice, and the history screen.
+///
+/// The token is cancelled when the last listener goes away, which keeps a
+/// disposed screen from holding an open request.
+final speakingHistoryProvider =
+    FutureProvider.autoDispose<List<SpeakingSessionSummary>>((ref) {
+      ref.watch(
+        sessionControllerProvider.select((state) => state.session?.userId),
+      );
+      final cancelToken = CancelToken();
+      ref.onDispose(cancelToken.cancel);
+      return ref
+          .watch(speakingRepositoryProvider)
+          .history(cancelToken: cancelToken);
+    });
 
 class SpeakingRepository {
   const SpeakingRepository(this._api, this._sessions);
@@ -50,12 +68,13 @@ class SpeakingRepository {
     SpeakingFeedback.fromJson,
   );
 
-  Future<List<SpeakingSessionSummary>> history() =>
+  Future<List<SpeakingSessionSummary>> history({CancelToken? cancelToken}) =>
       _api.get<List<SpeakingSessionSummary>>(
         '/v1/speaking-sessions',
         (json) => (json as List<dynamic>? ?? const <dynamic>[])
             .map(SpeakingSessionSummary.fromJson)
             .toList(growable: false),
+        cancelToken: cancelToken,
       );
 
   Future<AffectiveAssessmentResult> assessAffectiveState({

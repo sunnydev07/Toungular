@@ -35,13 +35,28 @@ export class ProfileService {
   public constructor(private readonly database: PrismaClient) {}
 
   public async get(userId: string): Promise<Profile> {
-    const profile = await this.database.profile.upsert({
+    // Read-only: an empty-update upsert wrote on every profile fetch.
+    const existing = await this.database.profile.findUnique({
       where: { userId },
-      update: {},
-      create: { userId },
       include: { user: { select: { email: true } } },
     });
-    return toProfile(profile);
+    if (existing) return toProfile(existing);
+
+    try {
+      const created = await this.database.profile.create({
+        data: { userId },
+        include: { user: { select: { email: true } } },
+      });
+      return toProfile(created);
+    } catch (error) {
+      // A concurrent first read may have created it already.
+      const fallback = await this.database.profile.findUnique({
+        where: { userId },
+        include: { user: { select: { email: true } } },
+      });
+      if (fallback) return toProfile(fallback);
+      throw error;
+    }
   }
 
   public async update(userId: string, patch: ProfilePatch): Promise<Profile> {

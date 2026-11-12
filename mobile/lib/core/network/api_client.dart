@@ -3,12 +3,11 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../shared/models/learning_models.dart';
 import '../config/app_environment.dart';
-import '../storage/session_store.dart';
+import 'session_manager.dart';
 
 final apiClientProvider = Provider<ApiClient>(
-  (ref) => ApiClient(ref.watch(sessionStoreProvider)),
+  (ref) => ApiClient(ref.watch(sessionManagerProvider)),
 );
 
 enum ApiFailure { network, unauthorized, validation, server, unknown }
@@ -32,7 +31,7 @@ class ApiException implements Exception {
 }
 
 class ApiClient {
-  ApiClient(this._sessionStore, {Dio? dio})
+  ApiClient(this._sessions, {Dio? dio})
     : _dio =
           dio ??
           Dio(
@@ -45,33 +44,49 @@ class ApiClient {
             ),
           );
 
-  final SessionStore _sessionStore;
+  final SessionManager _sessions;
   final Dio _dio;
-  Future<bool>? _refreshing;
 
-  Future<T> get<T>(String path, T Function(Object? json) decoder) =>
-      _request(path, 'GET', decoder);
+  Future<T> get<T>(
+    String path,
+    T Function(Object? json) decoder, {
+    CancelToken? cancelToken,
+  }) => _request(path, 'GET', decoder, cancelToken: cancelToken);
 
   Future<T> post<T>(
     String path,
     Object? body,
-    T Function(Object? json) decoder,
-  ) => _request(path, 'POST', decoder, body: body);
+    T Function(Object? json) decoder, {
+    CancelToken? cancelToken,
+  }) => _request(path, 'POST', decoder, body: body, cancelToken: cancelToken);
 
   Future<T> postRaw<T>(
     String path,
     List<int> bytes,
     String contentType,
-    T Function(Object? json) decoder,
-  ) => _request(path, 'POST', decoder, body: bytes, contentType: contentType);
+    T Function(Object? json) decoder, {
+    CancelToken? cancelToken,
+  }) => _request(
+    path,
+    'POST',
+    decoder,
+    body: bytes,
+    contentType: contentType,
+    cancelToken: cancelToken,
+  );
 
-  Future<Uint8List> postBytes(String path, Object? body) async {
+  Future<Uint8List> postBytes(
+    String path,
+    Object? body, {
+    CancelToken? cancelToken,
+  }) async {
     try {
       final response = await _send(
         path,
         'POST',
         body: body,
         responseType: ResponseType.bytes,
+        cancelToken: cancelToken,
       );
       final data = response.data;
       if (data is Uint8List) return data;
@@ -88,17 +103,22 @@ class ApiClient {
   Future<T> patch<T>(
     String path,
     Object? body,
-    T Function(Object? json) decoder,
-  ) => _request(path, 'PATCH', decoder, body: body);
+    T Function(Object? json) decoder, {
+    CancelToken? cancelToken,
+  }) => _request(path, 'PATCH', decoder, body: body, cancelToken: cancelToken);
 
   Future<T> put<T>(
     String path,
     Object? body,
-    T Function(Object? json) decoder,
-  ) => _request(path, 'PUT', decoder, body: body);
+    T Function(Object? json) decoder, {
+    CancelToken? cancelToken,
+  }) => _request(path, 'PUT', decoder, body: body, cancelToken: cancelToken);
 
-  Future<T> delete<T>(String path, T Function(Object? json) decoder) =>
-      _request(path, 'DELETE', decoder);
+  Future<T> delete<T>(
+    String path,
+    T Function(Object? json) decoder, {
+    CancelToken? cancelToken,
+  }) => _request(path, 'DELETE', decoder, cancelToken: cancelToken);
 
   Future<T> _request<T>(
     String path,
@@ -106,6 +126,7 @@ class ApiClient {
     T Function(Object? json) decoder, {
     Object? body,
     String? contentType,
+    CancelToken? cancelToken,
   }) async {
     try {
       final response = await _send(
@@ -113,6 +134,7 @@ class ApiClient {
         method,
         body: body,
         contentType: contentType,
+        cancelToken: cancelToken,
       );
       final responseBody = response.data;
       if (responseBody is Map && responseBody.containsKey('data')) {
@@ -131,6 +153,7 @@ class ApiClient {
     Object? body,
     String? contentType,
     ResponseType? responseType,
+    CancelToken? cancelToken,
   }) async {
     Future<Response<dynamic>> attempt() async => _dio.request<dynamic>(
       path,
@@ -141,6 +164,7 @@ class ApiClient {
         contentType: contentType,
         responseType: responseType,
       ),
+      cancelToken: cancelToken,
     );
 
     try {
@@ -149,53 +173,16 @@ class ApiClient {
       // Access tokens live 15 minutes, so a 401 is routine rather than a
       // signed-out session. Rotate the token and replay the request once.
       if (error.response?.statusCode != 401) rethrow;
-      if (path.startsWith('/v1/auth/')) rethrow;
-      if (!await _refreshSession()) rethrow;
+      // Login and refresh failures are the server's answer, but logout should
+      // retry with a rotated access token so the refresh token is revoked.
+      if (path.startsWith('/v1/auth/') && path != '/v1/auth/logout') rethrow;
+      if (await _sessions.refresh() == null) rethrow;
       return attempt();
     }
   }
 
-  /// Shares one rotation between concurrent expiries: the backend burns the
-  /// refresh token on first use, so parallel refreshes would end the session.
-  Future<bool> _refreshSession() {
-    final pending = _refreshing;
-    if (pending != null) return pending;
-    final rotating = _rotateRefreshToken();
-    _refreshing = rotating;
-    return rotating.whenComplete(() => _refreshing = null);
-  }
-
-  Future<bool> _rotateRefreshToken() async {
-    final token = (await _sessionStore.readSession())?.refreshToken ?? '';
-    if (token.isEmpty) return false;
-    try {
-      final response = await _dio.post<dynamic>(
-        '/v1/auth/refresh',
-        data: <String, Object?>{'refreshToken': token},
-      );
-      final body = response.data;
-      final payload = body is Map && body.containsKey('data')
-          ? body['data']
-          : body;
-      final refreshed = LearnerSession.fromAuthData(payload);
-      if (refreshed.accessToken.isEmpty || refreshed.refreshToken.isEmpty) {
-        return false;
-      }
-      await _sessionStore.writeSession(refreshed);
-      return true;
-    } on DioException catch (error) {
-      // Only a rejected refresh token ends the session; offline keeps it.
-      if (error.response?.statusCode == 401) {
-        await _sessionStore.clearSession();
-      }
-      return false;
-    } catch (_) {
-      return false;
-    }
-  }
-
   Future<Map<String, Object>> _headers() async {
-    final token = await _sessionStore.readAccessToken();
+    final token = await _sessions.accessToken();
     final headers = <String, Object>{};
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';

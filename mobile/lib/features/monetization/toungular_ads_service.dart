@@ -65,27 +65,49 @@ class ToungularAdsService extends ChangeNotifier {
       return false;
     }
     final completed = Completer<bool>();
+    RewardedAd? loaded;
+    Timer? loadTimer;
+    var disposed = false;
+
+    void disposeLoaded() {
+      if (disposed) return;
+      disposed = true;
+      loaded?.dispose();
+    }
+
+    void finish(bool value) {
+      loadTimer?.cancel();
+      if (!completed.isCompleted) completed.complete(value);
+    }
+
+    // A stuck ad request must not leave the learner waiting forever. The
+    // timeout covers loading only, not the length of the ad itself.
+    loadTimer = Timer(const Duration(seconds: 12), () {
+      disposeLoaded();
+      finish(false);
+    });
+
     RewardedAd.load(
       adUnitId: AppEnvironment.rewardedAdUnitId,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
+          loaded = ad;
+          loadTimer?.cancel();
           var earned = false;
           ad.fullScreenContentCallback = FullScreenContentCallback(
             onAdDismissedFullScreenContent: (ad) {
-              ad.dispose();
-              if (!completed.isCompleted) completed.complete(earned);
+              disposeLoaded();
+              finish(earned);
             },
             onAdFailedToShowFullScreenContent: (ad, _) {
-              ad.dispose();
-              if (!completed.isCompleted) completed.complete(false);
+              disposeLoaded();
+              finish(false);
             },
           );
           ad.show(onUserEarnedReward: (_, __) => earned = true);
         },
-        onAdFailedToLoad: (_) {
-          if (!completed.isCompleted) completed.complete(false);
-        },
+        onAdFailedToLoad: (_) => finish(false),
       ),
     );
     return completed.future;

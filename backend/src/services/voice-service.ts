@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import type { AppEnv } from '../config/env.js';
@@ -12,6 +12,9 @@ import {
 } from '../providers/voice.js';
 
 export type VoiceRequest = VoiceConfig & { provider?: string | undefined };
+
+const CACHE_MAX_FILES = 500;
+const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export class VoiceService {
   private readonly ttsProviders: Map<string, TtsProvider>;
@@ -58,7 +61,47 @@ export class VoiceService {
     const result = await provider.synthesize(text, config);
     await mkdir(dirname(cachePath), { recursive: true });
     await writeFile(cachePath, result.audio);
+    // Keep the shared cache from growing without bound; the request does not
+    // wait for housekeeping.
+    void this.pruneCache().catch(() => undefined);
     return { ...result, provider: provider.id, cached: false };
+  }
+
+  private async pruneCache(): Promise<void> {
+    const directory = this.env.voiceCacheDir;
+    let names: string[];
+    try {
+      names = (await readdir(directory)).filter((name) => name.endsWith('.mp3'));
+    } catch {
+      return;
+    }
+    if (names.length === 0) return;
+
+    const now = Date.now();
+    const entries: Array<{ path: string; modified: number }> = [];
+    for (const name of names) {
+      const path = join(directory, name);
+      try {
+        const info = await stat(path);
+        if (now - info.mtimeMs > CACHE_MAX_AGE_MS) {
+          await unlink(path);
+          continue;
+        }
+        entries.push({ path, modified: info.mtimeMs });
+      } catch {
+        // A file may disappear between readdir and stat; ignore it.
+      }
+    }
+
+    if (entries.length <= CACHE_MAX_FILES) return;
+    entries.sort((left, right) => left.modified - right.modified);
+    for (const entry of entries.slice(0, entries.length - CACHE_MAX_FILES)) {
+      try {
+        await unlink(entry.path);
+      } catch {
+        // Best-effort eviction.
+      }
+    }
   }
 
   public async transcribe(audio: Buffer, contentType: string, providerName?: string) {

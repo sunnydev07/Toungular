@@ -1,11 +1,13 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/storage/session_store.dart';
 import '../../shared/models/learning_models.dart';
+import '../auth/session_controller.dart';
 
 final vocabularyRepositoryProvider = Provider<VocabularyRepository>(
   (ref) => VocabularyRepository(
@@ -13,6 +15,22 @@ final vocabularyRepositoryProvider = Provider<VocabularyRepository>(
     ref.watch(sessionStoreProvider),
   ),
 );
+
+/// Shared due-card data for Today and Practice.
+///
+/// Disposing the provider cancels the pending request, so a tab that is torn
+/// down does not keep a network call alive.
+final dueVocabularyProvider =
+    FutureProvider.autoDispose<List<VocabularyReview>>((ref) {
+      ref.watch(
+        sessionControllerProvider.select((state) => state.session?.userId),
+      );
+      final cancelToken = CancelToken();
+      ref.onDispose(cancelToken.cancel);
+      return ref
+          .watch(vocabularyRepositoryProvider)
+          .loadDueItems(cancelToken: cancelToken);
+    });
 
 class VocabularyRepository {
   const VocabularyRepository(this._api, this._sessions);
@@ -23,7 +41,9 @@ class VocabularyRepository {
   final ApiClient _api;
   final SessionStore _sessions;
 
-  Future<List<VocabularyReview>> loadDueItems() async {
+  Future<List<VocabularyReview>> loadDueItems({
+    CancelToken? cancelToken,
+  }) async {
     final user = await _sessions.readSession();
     final key = _cachePrefix + (user?.userId ?? 'guest');
     try {
@@ -33,6 +53,7 @@ class VocabularyRepository {
         (json) => (json as List<dynamic>? ?? const <dynamic>[])
             .map(VocabularyReview.fromJson)
             .toList(growable: false),
+        cancelToken: cancelToken,
       );
       final preferences = await SharedPreferences.getInstance();
       await preferences.setString(

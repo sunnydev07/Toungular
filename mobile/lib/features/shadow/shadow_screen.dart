@@ -217,11 +217,13 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
 
       if (_sttAvailable && path != null) {
         unawaited(_transcribe());
-      } else {
-        // Fallback default: set reference text so learner can submit immediately
-        if (_currentPassage != null && _transcriptController.text.isEmpty) {
-          _transcriptController.text = _currentPassage!.text;
-        }
+      } else if (mounted) {
+        // Never pre-fill the reference passage: the score must reflect what
+        // the learner actually said, not the model text.
+        setState(
+          () => _error =
+              'Speech-to-text is unavailable. Type what you actually said, then analyze.',
+        );
       }
     } catch (_) {
       setState(() => _error = 'Could not save the shadow recording.');
@@ -243,10 +245,11 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
         setState(() => _transcriptController.text = text);
       }
     } catch (_) {
-      if (mounted &&
-          _currentPassage != null &&
-          _transcriptController.text.isEmpty) {
-        setState(() => _transcriptController.text = _currentPassage!.text);
+      if (mounted) {
+        setState(
+          () => _error =
+              'Transcription failed. Your recording is saved — type what you said, or record again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _transcribing = false);
@@ -271,6 +274,13 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
     final passage = _currentPassage;
     final transcript = _transcriptController.text.trim();
     if (passage == null) return;
+    if (_userAudioPath == null || _seconds < 1) {
+      setState(
+        () => _error =
+            'Record your attempt before analyzing so the session length can be measured.',
+      );
+      return;
+    }
     if (transcript.isEmpty) {
       setState(
         () => _error =
@@ -285,12 +295,11 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
     });
 
     try {
-      final duration = _seconds > 0 ? _seconds : passage.durationEstimateSec;
       final result = await ref
           .read(shadowRepositoryProvider)
           .analyze(
             passageId: passage.id,
-            durationSeconds: duration,
+            durationSeconds: _seconds,
             transcript: transcript,
           );
 

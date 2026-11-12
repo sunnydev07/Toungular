@@ -35,7 +35,22 @@ export class SpeakingService {
     const transcript = (input.transcript ?? session.transcript ?? '').trim();
     if (!transcript) throw new AppError(400, 'TRANSCRIPT_REQUIRED', 'Add the words you said before viewing practice feedback.');
 
-    const analysis = analyzeTranscript(transcript, input.durationSeconds, input.pauses ?? []);
+    const duration = Math.max(1, input.durationSeconds);
+    const wordCount = (transcript.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g) ?? []).length;
+    // Roughly 300 WPM is the fastest plausible human speech; a shorter session
+    // would inflate WPM and the fluency trend from client-supplied timing.
+    if (wordCount > duration * 5) {
+      throw new AppError(422, 'IMPLAUSIBLE_DURATION', 'The session length is too short for the submitted transcript. Record the full answer and try again.');
+    }
+    const pauses = input.pauses ?? [];
+    const pauseSeconds = pauses
+      .filter((pause) => Number.isFinite(pause) && pause > 0)
+      .reduce((total, pause) => total + pause, 0);
+    if (pauseSeconds > duration) {
+      throw new AppError(422, 'IMPLAUSIBLE_PAUSES', 'The reported pauses do not fit inside the recording length.');
+    }
+
+    const analysis = analyzeTranscript(transcript, duration, pauses);
     const previous = await this.database.speakingSession.findMany({
       where: { userId, status: 'completed', deletedAt: null, feedback: { not: null }, id: { not: id } },
       orderBy: { completedAt: 'desc' },
@@ -81,11 +96,12 @@ export class SpeakingService {
     return result;
   }
 
-  public async history(userId: string) {
+  public async history(userId: string, limit = 30, offset = 0) {
     const sessions = await this.database.speakingSession.findMany({
       where: { userId, deletedAt: null, type: { not: 'anonymous' } },
       orderBy: { startedAt: 'desc' },
-      take: 30,
+      take: limit,
+      skip: offset,
       select: { id: true, type: true, status: true, prompt: true, transcript: true, feedback: true, startedAt: true, completedAt: true },
     });
     return sessions.map((session) => ({

@@ -23,7 +23,8 @@ export type ShadowAnalysisResult = {
   wordCount: number;
   wordMatchPercent: number;
   paceAlignmentPercent: number;
-  rhythmScore: number;
+  rhythmScore: number | null;
+  assessmentBasis: 'transcript_and_pauses' | 'transcript_and_pace';
   overallScore: number;
   feedback: {
     paceDiagnosis: string;
@@ -144,6 +145,15 @@ export class ShadowService {
     const passageWords = normalizeWords(passage.text);
     const spokenWords = normalizeWords(transcript);
 
+    if (spokenWords.length === 0) {
+      throw new AppError(422, 'TRANSCRIPT_REQUIRED', 'The transcript did not contain any recognizable words.');
+    }
+    // A human cannot speak faster than roughly 300 WPM. Reject impossible
+    // timing instead of reporting an inflated pace score.
+    if (spokenWords.length > duration * 5) {
+      throw new AppError(422, 'IMPLAUSIBLE_DURATION', 'The session length is too short for the submitted transcript. Record the full attempt and try again.');
+    }
+
     const actualWpm = Math.round((spokenWords.length * 60) / duration);
     const targetWpm = passage.targetWpm;
 
@@ -158,15 +168,26 @@ export class ShadowService {
     const wpmDiff = Math.abs(actualWpm - targetWpm);
     const paceAlignmentPercent = Math.max(0, Math.min(100, Math.round(100 - wpmDiff * 1.6)));
 
-    // Rhythm score based on pause distribution
     const validPauses = pauses.filter((p) => Number.isFinite(p) && p >= 0.4);
-    const expectedChunkBreaks = passage.chunks.length - 1;
-    const pauseDiff = Math.abs(validPauses.length - expectedChunkBreaks);
-    const rhythmScore = Math.max(40, Math.min(100, 100 - pauseDiff * 15));
+    const pauseSeconds = validPauses.reduce((total, pause) => total + pause, 0);
+    if (pauseSeconds > duration) {
+      throw new AppError(422, 'IMPLAUSIBLE_PAUSES', 'The reported pauses do not fit inside the recording length.');
+    }
 
-    // Overall composite score
+    // Score pause timing only when the client actually measured pauses.
+    // Without timings there is no honest rhythm signal to report.
+    const rhythmScore = validPauses.length === 0
+      ? null
+      : (() => {
+          const expectedChunkBreaks = passage.chunks.length - 1;
+          const pauseDiff = Math.abs(validPauses.length - expectedChunkBreaks);
+          return Math.max(40, Math.min(100, 100 - pauseDiff * 15));
+        })();
+
     const overallScore = Math.round(
-      wordMatchPercent * 0.45 + paceAlignmentPercent * 0.40 + rhythmScore * 0.15,
+      rhythmScore === null
+        ? wordMatchPercent * 0.55 + paceAlignmentPercent * 0.45
+        : wordMatchPercent * 0.45 + paceAlignmentPercent * 0.40 + rhythmScore * 0.15,
     );
 
     // Diagnostic feedback messages
@@ -205,6 +226,7 @@ export class ShadowService {
       wordMatchPercent,
       paceAlignmentPercent,
       rhythmScore,
+      assessmentBasis: rhythmScore === null ? 'transcript_and_pace' : 'transcript_and_pauses',
       overallScore,
       feedback: {
         paceDiagnosis,

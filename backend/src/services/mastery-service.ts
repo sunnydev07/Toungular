@@ -50,23 +50,32 @@ export class MasteryService {
   public constructor(private readonly database: PrismaClient) {}
 
   public async getProfile(userId: string): Promise<MasteryProfile> {
-    const row = await this.database.masteryXp.upsert({
+    // Read-only: fall back to the starting profile instead of upserting a row.
+    const row = await this.database.masteryXp.findUnique({ where: { userId } });
+    return this.calculateProfile(row ?? this.blankRow(userId));
+  }
+
+  /// Creates the row only when XP is actually written, not on every read.
+  private async ensureRow(userId: string) {
+    return this.database.masteryXp.upsert({
       where: { userId },
       update: {},
-      create: {
-        userId,
-        fluencyXp: 0,
-        lexicalXp: 0,
-        acousticXp: 0,
-        interactionXp: 0,
-        totalXp: 0,
-        level: 1,
-        rankTitle: 'Apprentice',
-        freezeTokens: 2,
-      },
+      create: this.blankRow(userId),
     });
+  }
 
-    return this.calculateProfile(row);
+  private blankRow(userId: string) {
+    return {
+      userId,
+      fluencyXp: 0,
+      lexicalXp: 0,
+      acousticXp: 0,
+      interactionXp: 0,
+      totalXp: 0,
+      level: 1,
+      rankTitle: 'Apprentice',
+      freezeTokens: 2,
+    };
   }
 
   public async awardXp(
@@ -79,7 +88,7 @@ export class MasteryService {
       throw new AppError(400, 'INVALID_POINTS', 'Awarded XP points must be strictly positive.');
     }
 
-    const current = await this.getProfile(userId);
+    const current = this.calculateProfile(await this.ensureRow(userId));
     const previousLevel = current.level;
 
     const updateField =
@@ -150,7 +159,7 @@ export class MasteryService {
   }
 
   public async useFreezeToken(userId: string): Promise<MasteryProfile> {
-    const current = await this.getProfile(userId);
+    const current = this.calculateProfile(await this.ensureRow(userId));
     if (current.freezeTokens <= 0) {
       throw new AppError(400, 'NO_FREEZE_TOKENS', 'No freeze tokens available to use.');
     }

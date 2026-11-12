@@ -832,7 +832,7 @@ class _ContentScreenState extends ConsumerState<ContentScreen> {
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     Text(
-                      'Vocabulary: ${eval.vocabularyScore}% • Grammar: ${eval.grammarScore}%',
+                      'Vocabulary: ${eval.vocabularyScore}% • Mechanics: ${eval.mechanicsScore}%',
                     ),
                   ],
                 ),
@@ -879,31 +879,33 @@ class _ContentScreenState extends ConsumerState<ContentScreen> {
                 ],
               ),
           ],
-          const SizedBox(height: ToungularSpace.m),
-          Container(
-            padding: const EdgeInsets.all(ToungularSpace.m),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Text(
-                  'Recast (Refined model output):',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: ToungularColor.leaf,
+          if ((eval.recast ?? '').isNotEmpty) ...<Widget>[
+            const SizedBox(height: ToungularSpace.m),
+            Container(
+              padding: const EdgeInsets.all(ToungularSpace.m),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    'Recast (model rewrite):',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: ToungularColor.leaf,
+                    ),
                   ),
-                ),
-                const SizedBox(height: ToungularSpace.xs),
-                Text(
-                  eval.recast,
-                  style: const TextStyle(fontStyle: FontStyle.italic),
-                ),
-              ],
+                  const SizedBox(height: ToungularSpace.xs),
+                  Text(
+                    eval.recast!,
+                    style: const TextStyle(fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     ),

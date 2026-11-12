@@ -42,7 +42,7 @@ test('content service evaluates learner output text with target vocabulary and s
   const result = await service.evaluateOutput(
     'user-1',
     'article-a1-market-morning',
-    'I love visiting the food stall every Saturday morning. They always sell fresh vegetables and delicious bread for breakfast.',
+    'I love visiting the food stalls every Saturday morning. They always sell fresh vegetables and delicious bread for breakfast.',
   );
 
   assert.equal(result.articleId, 'article-a1-market-morning');
@@ -52,8 +52,8 @@ test('content service evaluates learner output text with target vocabulary and s
   assert.ok(result.targetWordsUsed.includes('fresh'));
   assert.ok(result.targetWordsUsed.includes('delicious'));
   assert.ok(result.vocabularyScore >= 80);
-  assert.ok(result.grammarScore >= 80);
+  assert.ok(result.mechanicsScore >= 80);
   assert.ok(result.overallScore >= 80);
   assert.ok(result.strengths.length > 0);
-  assert.ok(result.recast.length > 0);
+  assert.equal(result.recast, null);
 });

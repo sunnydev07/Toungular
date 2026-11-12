@@ -19,22 +19,14 @@ class CoursesScreen extends ConsumerStatefulWidget {
 }
 
 class _CoursesScreenState extends ConsumerState<CoursesScreen> {
-  late Future<Roadmap> _roadmap;
   bool _bonusUnlocked = false;
   bool _rewardLoading = false;
   String? _rewardMessage;
 
-  @override
-  void initState() {
-    super.initState();
-    _roadmap = ref.read(roadmapRepositoryProvider).load();
-  }
-
   Future<void> _refresh() async {
-    final request = ref.read(roadmapRepositoryProvider).load();
-    setState(() => _roadmap = request);
+    ref.invalidate(roadmapProvider);
     try {
-      await request;
+      await ref.read(roadmapProvider.future);
     } catch (_) {
       // Keep the saved path visible if the network is still unavailable.
     }
@@ -74,15 +66,11 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
     body: SafeArea(
       child: RefreshIndicator(
         onRefresh: _refresh,
-        child: FutureBuilder<Roadmap>(
-          future: _roadmap,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              final error = snapshot.error;
-              return ListView(
+        child: ref
+            .watch(roadmapProvider)
+            .when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(ToungularSpace.l),
                 children: <Widget>[
@@ -103,93 +91,90 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                     label: const Text('Try again'),
                   ),
                 ],
-              );
-            }
-            final roadmap = snapshot.data!;
-            return ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
-                ToungularSpace.l,
-                ToungularSpace.s,
-                ToungularSpace.l,
-                ToungularSpace.xl,
               ),
-              children: <Widget>[
-                Text(
-                  'Build English you can use.',
-                  style: Theme.of(context).textTheme.displaySmall,
+              data: (roadmap) => ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(
+                  ToungularSpace.l,
+                  ToungularSpace.s,
+                  ToungularSpace.l,
+                  ToungularSpace.xl,
                 ),
-                const SizedBox(height: ToungularSpace.s),
-                const Text(
-                  'Short lessons help you express ideas clearly, one conversation at a time.',
-                ),
-                if (roadmap.source == RoadmapSource.cached) ...<Widget>[
-                  const SizedBox(height: ToungularSpace.m),
-                  const _OfflineNotice(),
-                ],
-                const SizedBox(height: ToungularSpace.l),
-                for (final course in roadmap.courses) ...<Widget>[
-                  _CourseCard(course: course),
-                  const SizedBox(height: ToungularSpace.m),
-                ],
-                if (AppEnvironment.adsEnabled) ...<Widget>[
-                  Card(
-                    color: ToungularColor.mist,
-                    child: Padding(
-                      padding: const EdgeInsets.all(ToungularSpace.m),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Unlock a bonus prompt',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: ToungularSpace.xs),
-                          const Text(
-                            'An optional rewarded ad opens one extra original speaking practice prompt.',
-                          ),
-                          if (_bonusUnlocked) ...<Widget>[
-                            const SizedBox(height: ToungularSpace.s),
-                            const Text(
-                              'Describe a skill you practiced and how you noticed your progress.',
+                children: <Widget>[
+                  Text(
+                    'Build English you can use.',
+                    style: Theme.of(context).textTheme.displaySmall,
+                  ),
+                  const SizedBox(height: ToungularSpace.s),
+                  const Text(
+                    'Short lessons help you express ideas clearly, one conversation at a time.',
+                  ),
+                  if (roadmap.source == RoadmapSource.cached) ...<Widget>[
+                    const SizedBox(height: ToungularSpace.m),
+                    const _OfflineNotice(),
+                  ],
+                  const SizedBox(height: ToungularSpace.l),
+                  for (final course in roadmap.courses) ...<Widget>[
+                    _CourseCard(course: course),
+                    const SizedBox(height: ToungularSpace.m),
+                  ],
+                  if (AppEnvironment.adsEnabled) ...<Widget>[
+                    Card(
+                      color: ToungularColor.mist,
+                      child: Padding(
+                        padding: const EdgeInsets.all(ToungularSpace.m),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              'Unlock a bonus prompt',
+                              style: Theme.of(context).textTheme.titleLarge,
                             ),
-                            const SizedBox(height: ToungularSpace.s),
-                            OutlinedButton(
-                              onPressed: () => context.push(
-                                '/speaking?prompt=Describe%20a%20skill%20you%20practiced%20and%20how%20you%20noticed%20your%20progress.',
-                              ),
-                              child: const Text('Start bonus practice'),
-                            ),
-                          ] else ...<Widget>[
-                            const SizedBox(height: ToungularSpace.s),
-                            OutlinedButton(
-                              onPressed: _rewardLoading ? null : _unlockBonus,
-                              child: Text(
-                                _rewardLoading
-                                    ? 'Loading ad…'
-                                    : 'Watch rewarded ad',
-                              ),
-                            ),
-                          ],
-                          if (_rewardMessage != null) ...<Widget>[
                             const SizedBox(height: ToungularSpace.xs),
-                            Text(_rewardMessage!),
+                            const Text(
+                              'An optional rewarded ad opens one extra original speaking practice prompt.',
+                            ),
+                            if (_bonusUnlocked) ...<Widget>[
+                              const SizedBox(height: ToungularSpace.s),
+                              const Text(
+                                'Describe a skill you practiced and how you noticed your progress.',
+                              ),
+                              const SizedBox(height: ToungularSpace.s),
+                              OutlinedButton(
+                                onPressed: () => context.push(
+                                  '/speaking?prompt=Describe%20a%20skill%20you%20practiced%20and%20how%20you%20noticed%20your%20progress.',
+                                ),
+                                child: const Text('Start bonus practice'),
+                              ),
+                            ] else ...<Widget>[
+                              const SizedBox(height: ToungularSpace.s),
+                              OutlinedButton(
+                                onPressed: _rewardLoading ? null : _unlockBonus,
+                                child: Text(
+                                  _rewardLoading
+                                      ? 'Loading ad…'
+                                      : 'Watch rewarded ad',
+                                ),
+                              ),
+                            ],
+                            if (_rewardMessage != null) ...<Widget>[
+                              const SizedBox(height: ToungularSpace.xs),
+                              Text(_rewardMessage!),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
+                    const SizedBox(height: ToungularSpace.m),
+                  ],
+                  OutlinedButton.icon(
+                    onPressed: () => context.push('/vocabulary'),
+                    icon: const Icon(Icons.style_outlined),
+                    label: const Text('Review vocabulary'),
                   ),
-                  const SizedBox(height: ToungularSpace.m),
                 ],
-                OutlinedButton.icon(
-                  onPressed: () => context.push('/vocabulary'),
-                  icon: const Icon(Icons.style_outlined),
-                  label: const Text('Review vocabulary'),
-                ),
-              ],
-            );
-          },
-        ),
+              ),
+            ),
       ),
     ),
   );

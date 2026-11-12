@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toungular/core/network/api_client.dart';
+import 'package:toungular/core/network/session_manager.dart';
 import 'package:toungular/core/storage/session_store.dart';
 import 'package:toungular/core/voice/voice_repository.dart';
 import 'package:toungular/shared/models/learning_models.dart';
@@ -27,7 +28,7 @@ void main() {
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('voice_repo_test_');
     repository = VoiceRepository(
-      ApiClient(_NoOpSessionStore()),
+      ApiClient(SessionManager(_NoOpSessionStore())),
       cacheDirectory: tempDir,
       maxCacheFiles: 2,
       maxCacheBytes: 1000,
@@ -76,7 +77,7 @@ void main() {
 
   test('pruneCache removes oldest files when bytes exceed maxCacheBytes', () async {
     final customRepo = VoiceRepository(
-      ApiClient(_NoOpSessionStore()),
+      ApiClient(SessionManager(_NoOpSessionStore())),
       cacheDirectory: tempDir,
       maxCacheFiles: 10,
       maxCacheBytes: 100, // Small byte limit

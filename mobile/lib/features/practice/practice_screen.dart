@@ -16,36 +16,29 @@ class PracticeScreen extends ConsumerStatefulWidget {
   ConsumerState<PracticeScreen> createState() => _PracticeScreenState();
 }
 
+/// The history and due cards share the same providers as Today, so both tabs
+/// show one answer and both requests cancel when the last listener leaves.
+final practiceOverviewProvider = FutureProvider.autoDispose<_PracticeData>((
+  ref,
+) async {
+  final results = await Future.wait<Object>(<Future<Object>>[
+    ref.watch(speakingHistoryProvider.future),
+    ref.watch(dueVocabularyProvider.future),
+  ]);
+  return _PracticeData(
+    history: results[0] as List<SpeakingSessionSummary>,
+    due: results[1] as List<VocabularyReview>,
+  );
+});
+
 class _PracticeScreenState extends ConsumerState<PracticeScreen> {
-  late Future<_PracticeData> _data;
-
-  @override
-  void initState() {
-    super.initState();
-    _data = _load();
-  }
-
-  Future<_PracticeData> _load() async {
-    final results = await Future.wait<Object?>(<Future<Object?>>[
-      ref.read(speakingRepositoryProvider).history(),
-      ref.read(vocabularyRepositoryProvider).loadDueItems(),
-    ]);
-    return _PracticeData(
-      history:
-          (results[0] as List<SpeakingSessionSummary>? ??
-          const <SpeakingSessionSummary>[]),
-      due:
-          (results[1] as List<VocabularyReview>? ?? const <VocabularyReview>[]),
-    );
-  }
-
   Future<void> _refresh() async {
-    final next = _load();
-    setState(() => _data = next);
+    ref.invalidate(speakingHistoryProvider);
+    ref.invalidate(dueVocabularyProvider);
     try {
-      await next;
+      await ref.read(practiceOverviewProvider.future);
     } catch (_) {
-      // The FutureBuilder shows the recoverable error state.
+      // The cards below report the recoverable state.
     }
   }
 
@@ -60,14 +53,11 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: FutureBuilder<_PracticeData>(
-          future: _data,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return ListView(
+        child: ref
+            .watch(practiceOverviewProvider)
+            .when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => ListView(
                 padding: const EdgeInsets.all(ToungularSpace.l),
                 children: <Widget>[
                   Card(
@@ -96,16 +86,10 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                     ),
                   ),
                 ],
-              );
-            }
-            return _content(
-              context,
-              snapshot.data!,
-              prompt.text,
-              proficiency?.label,
-            );
-          },
-        ),
+              ),
+              data: (data) =>
+                  _content(context, data, prompt.text, proficiency?.label),
+            ),
       ),
     );
   }

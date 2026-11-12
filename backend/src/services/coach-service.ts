@@ -138,13 +138,20 @@ export class CoachService {
     };
   }
 
-  public async load(userId: string, id: string) {
+  public async load(userId: string, id: string, limit = 30, offset = 0) {
     const conversation = await this.database.conversation.findFirst({
       where: { id, userId },
-      include: { turns: { orderBy: { createdAt: 'asc' } } },
+      include: {
+        turns: {
+          orderBy: { createdAt: 'asc' },
+          take: limit,
+          skip: offset,
+        },
+      },
     });
     if (!conversation) throw new AppError(404, 'CONVERSATION_NOT_FOUND', 'The practice conversation was not found.');
-    return { ...conversation, scenario: this.findScenario(conversation.scenarioId) };
+    const turnsTotal = await this.database.conversationTurn.count({ where: { conversationId: id } });
+    return { ...conversation, turnsTotal, scenario: this.findScenario(conversation.scenarioId) };
   }
 
   public async finish(userId: string, id: string) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,6 +34,7 @@ class VoiceRepository {
   final Directory _cacheDir;
   final int maxCacheFiles;
   final int maxCacheBytes;
+  DateTime? _lastPruneAt;
 
   Future<VoiceStatus> status() =>
       _api.get<VoiceStatus>('/v1/voice/providers', (json) {
@@ -50,9 +53,19 @@ class VoiceRepository {
         );
       });
 
-  Future<String> synthesizeToFile(String text) async {
+  Future<String> synthesizeToFile(
+    String text, {
+    String? provider,
+    String? voiceId,
+    double? speed,
+  }) async {
+    final key = _cacheKey(
+      <String>[provider ?? 'auto', voiceId ?? '', '${speed ?? 1}', text].join(
+        '|',
+      ),
+    );
     final file = File(
-      '${_cacheDir.path}${Platform.pathSeparator}toungular-voice-${text.hashCode}.mp3',
+      '${_cacheDir.path}${Platform.pathSeparator}toungular-voice-$key.mp3',
     );
     if (await file.exists() && await file.length() > 0) {
       try {
@@ -64,8 +77,24 @@ class VoiceRepository {
       'text': text,
     });
     await file.writeAsBytes(bytes, flush: true);
-    await pruneCache();
+    final now = DateTime.now();
+    final lastPrune = _lastPruneAt;
+    if (lastPrune == null ||
+        now.difference(lastPrune) > const Duration(seconds: 10)) {
+      _lastPruneAt = now;
+      unawaited(pruneCache());
+    }
     return file.path;
+  }
+
+  String _cacheKey(String value) {
+    // 32-bit FNV-1a: stable across runs and not Dart's identity hashCode.
+    var hash = 0x811c9dc5;
+    for (final byte in utf8.encode(value)) {
+      hash ^= byte;
+      hash = (hash * 0x01000193) & 0xFFFFFFFF;
+    }
+    return hash.toRadixString(16).padLeft(8, '0');
   }
 
   Future<void> pruneCache() async {

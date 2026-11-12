@@ -117,7 +117,7 @@ npm start
 
 The API will listen on `http://localhost:3000`.
 
-> **Note for PostgreSQL**: Set `DATABASE_URL="postgresql://user:pass@host:5432/toungular"` in `.env`, then run `npm run prisma:generate:postgres` and `npm run prisma:migrate:postgres`.
+> **Note for PostgreSQL**: Set `DATABASE_URL="postgresql://user:pass@host:5432/toungular"` in `.env`, then run `npm run prisma:generate:postgres`, `npm run prisma:migrate:postgres`, and `npm run build:postgres`. The default `npm run build` targets the SQLite client.
 
 ---
 

@@ -1111,7 +1111,7 @@ class ShadowAnalysisResult {
   final int wordCount;
   final int wordMatchPercent;
   final int paceAlignmentPercent;
-  final int rhythmScore;
+  final int? rhythmScore;
   final int overallScore;
   final ShadowFeedback feedback;
 
@@ -1127,7 +1127,7 @@ class ShadowAnalysisResult {
       wordCount: (map['wordCount'] as num?)?.toInt() ?? 0,
       wordMatchPercent: (map['wordMatchPercent'] as num?)?.toInt() ?? 0,
       paceAlignmentPercent: (map['paceAlignmentPercent'] as num?)?.toInt() ?? 0,
-      rhythmScore: (map['rhythmScore'] as num?)?.toInt() ?? 0,
+      rhythmScore: (map['rhythmScore'] as num?)?.toInt(),
       overallScore: (map['overallScore'] as num?)?.toInt() ?? 0,
       feedback: ShadowFeedback.fromJson(map['feedback']),
     );
@@ -1270,7 +1270,7 @@ class ArticleEvaluationResult {
     required this.sentenceCount,
     required this.targetWordsUsed,
     required this.targetWordsMissing,
-    required this.grammarScore,
+    required this.mechanicsScore,
     required this.vocabularyScore,
     required this.overallScore,
     required this.strengths,
@@ -1283,12 +1283,12 @@ class ArticleEvaluationResult {
   final int sentenceCount;
   final List<String> targetWordsUsed;
   final List<String> targetWordsMissing;
-  final int grammarScore;
+  final int mechanicsScore;
   final int vocabularyScore;
   final int overallScore;
   final List<String> strengths;
   final List<String> suggestions;
-  final String recast;
+  final String? recast;
 
   factory ArticleEvaluationResult.fromJson(Object? json) {
     final map = _asMap(json);
@@ -1304,7 +1304,7 @@ class ArticleEvaluationResult {
           (map['targetWordsMissing'] as List<dynamic>? ?? const <dynamic>[])
               .map((e) => e.toString())
               .toList(growable: false),
-      grammarScore: (map['grammarScore'] as num?)?.toInt() ?? 0,
+      mechanicsScore: (map['mechanicsScore'] as num?)?.toInt() ?? 0,
       vocabularyScore: (map['vocabularyScore'] as num?)?.toInt() ?? 0,
       overallScore: (map['overallScore'] as num?)?.toInt() ?? 0,
       strengths: (map['strengths'] as List<dynamic>? ?? const <dynamic>[])
@@ -1313,7 +1313,7 @@ class ArticleEvaluationResult {
       suggestions: (map['suggestions'] as List<dynamic>? ?? const <dynamic>[])
           .map((e) => e.toString())
           .toList(growable: false),
-      recast: map['recast'] as String? ?? '',
+      recast: map['recast'] as String?,
     );
   }
 }
@@ -1552,39 +1552,6 @@ class MasteryProfile {
       levelProgressPercent: (map['levelProgressPercent'] as num?)?.toInt() ?? 0,
       nextLevelXpRequired: (map['nextLevelXpRequired'] as num?)?.toInt() ?? 0,
       perk: map['perk'] as String? ?? '',
-    );
-  }
-}
-
-class AwardXpResult {
-  const AwardXpResult({
-    required this.profile,
-    required this.awardedXp,
-    required this.category,
-    required this.reason,
-    required this.leveledUp,
-    required this.previousLevel,
-    required this.newLevel,
-  });
-
-  final MasteryProfile profile;
-  final int awardedXp;
-  final String category;
-  final String reason;
-  final bool leveledUp;
-  final int previousLevel;
-  final int newLevel;
-
-  factory AwardXpResult.fromJson(Object? json) {
-    final map = _asMap(json);
-    return AwardXpResult(
-      profile: MasteryProfile.fromJson(map['profile']),
-      awardedXp: (map['awardedXp'] as num?)?.toInt() ?? 0,
-      category: map['category'] as String? ?? 'fluency',
-      reason: map['reason'] as String? ?? '',
-      leveledUp: map['leveledUp'] as bool? ?? false,
-      previousLevel: (map['previousLevel'] as num?)?.toInt() ?? 1,
-      newLevel: (map['newLevel'] as num?)?.toInt() ?? 1,
     );
   }
 }

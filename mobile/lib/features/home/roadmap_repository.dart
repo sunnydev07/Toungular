@@ -1,11 +1,13 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/storage/session_store.dart';
 import '../../shared/models/learning_models.dart';
+import '../auth/session_controller.dart';
 
 final roadmapRepositoryProvider = Provider<RoadmapRepository>(
   (ref) => RoadmapRepository(
@@ -14,6 +16,17 @@ final roadmapRepositoryProvider = Provider<RoadmapRepository>(
   ),
 );
 
+/// The one roadmap every tab reads.
+///
+/// The provider never outlives its last listener, so leaving the screens
+/// cancels the in-flight Dio request instead of letting it finish unseen.
+final roadmapProvider = FutureProvider.autoDispose<Roadmap>((ref) {
+  ref.watch(sessionControllerProvider.select((state) => state.session?.userId));
+  final cancelToken = CancelToken();
+  ref.onDispose(cancelToken.cancel);
+  return ref.watch(roadmapRepositoryProvider).load(cancelToken: cancelToken);
+});
+
 class RoadmapRepository {
   const RoadmapRepository(this._api, this._sessionStore);
 
@@ -21,9 +34,13 @@ class RoadmapRepository {
   final ApiClient _api;
   final SessionStore _sessionStore;
 
-  Future<Roadmap> load() async {
+  Future<Roadmap> load({CancelToken? cancelToken}) async {
     try {
-      final roadmap = await _api.get<Roadmap>('/v1/roadmap', Roadmap.fromJson);
+      final roadmap = await _api.get<Roadmap>(
+        '/v1/roadmap',
+        Roadmap.fromJson,
+        cancelToken: cancelToken,
+      );
       final session = await _sessionStore.readSession();
       if (session != null) {
         final preferences = await SharedPreferences.getInstance();

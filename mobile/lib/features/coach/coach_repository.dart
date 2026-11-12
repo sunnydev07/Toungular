@@ -23,8 +23,15 @@ class CoachRepository {
         'scenarioId': scenarioId,
       }, CoachConversation.fromJson);
 
-  Future<CoachConversation> load(String id) => _api.get<CoachConversation>(
-    '/v1/conversations/$id',
+  /// Loads the conversation with one bounded page of turns. The server caps a
+  /// page at 100, which keeps ordinary conversations complete while avoiding
+  /// an unbounded response for very long ones.
+  Future<CoachConversation> load(
+    String id, {
+    int limit = 100,
+    int offset = 0,
+  }) => _api.get<CoachConversation>(
+    '/v1/conversations/$id?limit=$limit&offset=$offset',
     CoachConversation.fromJson,
   );
 

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toungular/core/network/api_client.dart';
+import 'package:toungular/core/network/session_manager.dart';
 import 'package:toungular/core/storage/session_store.dart';
 import 'package:toungular/shared/models/learning_models.dart';
 
@@ -73,12 +74,11 @@ LearnerSession _session(String accessToken, String refreshToken) =>
       'refreshToken': refreshToken,
     });
 
-ApiClient _client(_MemorySessionStore store, _FakeAdapter adapter) =>
-    ApiClient(
-      store,
-      dio: Dio(BaseOptions(baseUrl: 'http://toungular.test'))
-        ..httpClientAdapter = adapter,
-    );
+ApiClient _client(_MemorySessionStore store, _FakeAdapter adapter) {
+  final dio = Dio(BaseOptions(baseUrl: 'http://toungular.test'))
+    ..httpClientAdapter = adapter;
+  return ApiClient(SessionManager(store, dio: dio), dio: dio);
+}
 
 void main() {
   test('rotates an expired access token and replays the request', () async {
@@ -161,5 +161,72 @@ void main() {
     );
     expect(store.clears, 1);
     expect(store.session, isNull);
+  });
+
+  test('emits an expiry event when the refresh token is rejected', () async {
+    final store = _MemorySessionStore(_session('access-1', 'refresh-1'));
+    final dio = Dio(BaseOptions(baseUrl: 'http://toungular.test'))
+      ..httpClientAdapter = _FakeAdapter(
+        (options) async => _json({
+          'error': {'message': 'Refresh token expired.'},
+        }, 401),
+      );
+    final manager = SessionManager(store, dio: dio);
+
+    final expired = manager.expired.first;
+    await manager.refresh();
+    await expired;
+
+    expect(store.session, isNull);
+    expect(store.clears, 1);
+  });
+
+  test('retries logout after rotating an expired access token', () async {
+    final store = _MemorySessionStore(_session('access-1', 'refresh-1'));
+    final adapter = _FakeAdapter((options) async {
+      if (options.path == '/v1/auth/refresh') {
+        return _json({
+          'data': _authBody('access-2', 'refresh-2'),
+        }, 200);
+      }
+      if (options.headers['Authorization'] == 'Bearer access-2') {
+        return _json({
+          'data': {'revoked': true},
+        }, 200);
+      }
+      return _json({
+        'error': {'message': 'Token expired.'},
+      }, 401);
+    });
+
+    final result = await _client(store, adapter).post<Object?>(
+      '/v1/auth/logout',
+      <String, Object?>{'refreshToken': 'refresh-1'},
+      (json) => json,
+    );
+
+    expect(result, isNotNull);
+    expect(adapter.paths, <String>[
+      '/v1/auth/logout',
+      '/v1/auth/refresh',
+      '/v1/auth/logout',
+    ]);
+  });
+
+  test('restore keeps the stored session while offline', () async {
+    final store = _MemorySessionStore(_session('access-1', 'refresh-1'));
+    final dio = Dio(BaseOptions(baseUrl: 'http://toungular.test'))
+      ..httpClientAdapter = _FakeAdapter(
+        (options) async => throw DioException(
+          requestOptions: options,
+          type: DioExceptionType.connectionError,
+        ),
+      );
+    final manager = SessionManager(store, dio: dio);
+
+    final restored = await manager.restore();
+
+    expect(restored?.refreshToken, 'refresh-1');
+    expect(store.session, isNotNull);
   });
 }

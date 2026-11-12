@@ -26,11 +26,20 @@ import '../features/vocabulary/vocabulary_screen.dart';
 
 import 'home_shell.dart';
 
-final GoRouter appRouter = GoRouter(
-  initialLocation: '/',
-  redirect: (context, state) {
-    try {
-      final container = ProviderScope.containerOf(context);
+final appRouterProvider = Provider<GoRouter>((ref) {
+  // The redirect only reruns on navigation, so sign-in and sign-out must
+  // invalidate it; otherwise a rejected session leaves the user on a dead tab.
+  final refresh = ValueNotifier<int>(0);
+  ref.onDispose(refresh.dispose);
+  ref.listen<SessionState>(sessionControllerProvider, (_, __) {
+    refresh.value += 1;
+  });
+
+  return GoRouter(
+    initialLocation: '/',
+    refreshListenable: refresh,
+    redirect: (context, state) {
+      final container = ProviderScope.containerOf(context, listen: false);
       final session = container.read(sessionControllerProvider);
       if (session.isLoading) return null;
       final path = state.matchedLocation;
@@ -46,9 +55,8 @@ final GoRouter appRouter = GoRouter(
       if (path == '/auth') {
         return '/home';
       }
-    } catch (_) {}
-    return null;
-  },
+      return null;
+    },
   errorBuilder: (context, state) => Scaffold(
     appBar: AppBar(title: const Text('Page not found')),
     body: Center(
@@ -187,8 +195,9 @@ final GoRouter appRouter = GoRouter(
       path: '/mastery',
       builder: (context, state) => const MasteryScreen(),
     ),
-  ],
-);
+    ],
+  );
+});
 
 class AppEntryScreen extends ConsumerWidget {
   const AppEntryScreen({super.key});

@@ -1,21 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_client.dart';
-import '../../core/storage/session_store.dart';
+import '../../core/network/session_manager.dart';
 import '../../shared/models/learning_models.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>(
   (ref) => AuthRepository(
     ref.watch(apiClientProvider),
-    ref.watch(sessionStoreProvider),
+    ref.watch(sessionManagerProvider),
   ),
 );
 
 class AuthRepository {
-  const AuthRepository(this._api, this._sessionStore);
+  const AuthRepository(this._api, this._sessions);
 
   final ApiClient _api;
-  final SessionStore _sessionStore;
+  final SessionManager _sessions;
 
   Future<LearnerSession> register({
     required String email,
@@ -33,17 +33,23 @@ class AuthRepository {
     'password': password,
   });
 
-  Future<LearnerSession> refresh(String refreshToken) async {
-    final session = await _api.post<LearnerSession>(
-      '/v1/auth/refresh',
-      <String, Object?>{'refreshToken': refreshToken},
-      LearnerSession.fromAuthData,
-    );
-    await _sessionStore.writeSession(session);
-    return session;
+  /// Revokes the refresh token server-side, then drops the local session.
+  /// Local sign-out must succeed even when the API is unreachable.
+  Future<void> logout() async {
+    final refreshToken = await _sessions.refreshToken();
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      try {
+        await _api.post<Object?>(
+          '/v1/auth/logout',
+          <String, Object?>{'refreshToken': refreshToken},
+          (json) => json,
+        );
+      } on ApiException {
+        // The token expires on its own; still clear the device.
+      }
+    }
+    await _sessions.clear();
   }
-
-  Future<void> logout() => _sessionStore.clearSession();
 
   Future<LearnerSession> _authenticate(
     String path,
@@ -54,7 +60,7 @@ class AuthRepository {
       body,
       LearnerSession.fromAuthData,
     );
-    await _sessionStore.writeSession(session);
+    _sessions.accept(session);
     return session;
   }
 }

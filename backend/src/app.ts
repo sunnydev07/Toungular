@@ -1,4 +1,8 @@
+import { randomUUID } from 'node:crypto';
+
 import express, { type Express, type RequestHandler } from 'express';
+import { rateLimit } from 'express-rate-limit';
+import helmet from 'helmet';
 
 import { loadEnv, type AppEnv } from './config/env.js';
 import { jsonErrorHandler } from './lib/http.js';
@@ -42,6 +46,33 @@ function corsForMobile(origin: string): RequestHandler {
   };
 }
 
+function requestId(): RequestHandler {
+  return (request, response, next) => {
+    const incoming = request.header('x-request-id');
+    const id = incoming && /^[\w.-]{1,64}$/.test(incoming) ? incoming : randomUUID();
+    response.locals.requestId = id;
+    response.setHeader('X-Request-Id', id);
+    next();
+  };
+}
+
+function authLimiter(limit: number, windowMs: number): RequestHandler {
+  return rateLimit({
+    windowMs,
+    limit,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    // The API may run behind a proxy we do not control; keying on the socket
+    // address avoids trusting arbitrary X-Forwarded-For values.
+    validate: { xForwardedForHeader: false },
+    handler: (_request, response) => {
+      response.status(429).json({
+        error: { code: 'RATE_LIMITED', message: 'Too many attempts. Please wait and try again.' },
+      });
+    },
+  });
+}
+
 export function createApp(env: AppEnv = loadEnv()): Express {
   const app = express();
   const profiles = new ProfileService(prisma);
@@ -51,7 +82,16 @@ export function createApp(env: AppEnv = loadEnv()): Express {
   const pronunciation = new PronunciationService(prisma, decision, mastery);
 
   app.disable('x-powered-by');
+  app.use(requestId());
+  app.use(helmet());
   app.use(corsForMobile(env.mobileOrigin));
+
+  const credentialLimiter = authLimiter(10, 15 * 60 * 1000);
+  const refreshLimiter = authLimiter(120, 15 * 60 * 1000);
+  app.use('/v1/auth/login', credentialLimiter);
+  app.use('/v1/auth/register', credentialLimiter);
+  app.use('/v1/auth/refresh', refreshLimiter);
+
   app.use(express.json({ limit: '1mb' }));
   app.get('/health', (_request, response) => {
     response.status(200).json({ service: 'toungular-api', status: 'ok' });

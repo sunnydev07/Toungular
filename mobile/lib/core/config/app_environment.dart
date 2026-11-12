@@ -37,16 +37,49 @@ abstract final class AppEnvironment {
     return configured;
   }
 
-  static const bool adsEnabled = bool.fromEnvironment(
+  static const bool _adsRequested = bool.fromEnvironment(
     'ADS_ENABLED',
     defaultValue: false,
   );
-  static const String bannerAdUnitId = String.fromEnvironment(
+  static const String _configuredBannerAdUnitId = String.fromEnvironment(
     'ADMOB_BANNER_ID',
-    defaultValue: 'ca-app-pub-3940256099942544/6300978111',
   );
-  static const String rewardedAdUnitId = String.fromEnvironment(
+  static const String _configuredRewardedAdUnitId = String.fromEnvironment(
     'ADMOB_REWARDED_ID',
-    defaultValue: 'ca-app-pub-3940256099942544/5224354917',
   );
+
+  // Google's sample units are only valid for development builds.
+  static const String _testBannerAdUnitId =
+      'ca-app-pub-3940256099942544/6300978111';
+  static const String _testRewardedAdUnitId =
+      'ca-app-pub-3940256099942544/5224354917';
+
+  /// Ads stay off in a release build until real AdMob unit IDs are supplied;
+  /// shipping Google's test units would earn nothing and violate policy.
+  static bool get adsEnabled => resolveAdsEnabled(
+    requested: _adsRequested,
+    release: kReleaseMode,
+    bannerAdUnitId: _configuredBannerAdUnitId,
+    rewardedAdUnitId: _configuredRewardedAdUnitId,
+  );
+
+  @visibleForTesting
+  static bool resolveAdsEnabled({
+    required bool requested,
+    required bool release,
+    required String bannerAdUnitId,
+    required String rewardedAdUnitId,
+  }) {
+    if (!requested) return false;
+    if (!release) return true;
+    return bannerAdUnitId.isNotEmpty && rewardedAdUnitId.isNotEmpty;
+  }
+
+  static String get bannerAdUnitId => _configuredBannerAdUnitId.isEmpty
+      ? _testBannerAdUnitId
+      : _configuredBannerAdUnitId;
+
+  static String get rewardedAdUnitId => _configuredRewardedAdUnitId.isEmpty
+      ? _testRewardedAdUnitId
+      : _configuredRewardedAdUnitId;
 }

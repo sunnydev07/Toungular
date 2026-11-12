@@ -32,12 +32,14 @@ model RefreshToken {
   id        String   @id @default(cuid())
   userId    String
   tokenHash String   @unique
+  familyId  String?
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, expiresAt])
+  @@index([userId, familyId])
 }
 
 model Profile {
@@ -129,6 +131,7 @@ model ReviewSchedule {
 
   @@unique([userId, vocabularyId])
   @@index([userId, dueAt])
+  @@index([userId, lastReviewedAt])
 }
 
 model SpeakingSession {
@@ -146,6 +149,7 @@ model SpeakingSession {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, startedAt])
+  @@index([userId, completedAt])
 }
 
 model Conversation {
@@ -160,6 +164,7 @@ model Conversation {
   turns      ConversationTurn[]
 
   @@index([userId, createdAt])
+  @@index([userId, finishedAt])
 }
 
 model ConversationTurn {
@@ -187,6 +192,7 @@ model IeltsAttempt {
   responses  IeltsAttemptResponse[]
 
   @@index([userId, startedAt])
+  @@index([userId, finishedAt])
 }
 
 model IeltsAttemptResponse {

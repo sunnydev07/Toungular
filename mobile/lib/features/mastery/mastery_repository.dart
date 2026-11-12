@@ -15,16 +15,6 @@ class MasteryRepository {
   Future<MasteryProfile> getProfile() =>
       _api.get<MasteryProfile>('/v1/mastery/profile', MasteryProfile.fromJson);
 
-  Future<AwardXpResult> awardXp({
-    required String category,
-    required int points,
-    required String reason,
-  }) => _api.post<AwardXpResult>('/v1/mastery/award', <String, Object?>{
-    'category': category,
-    'points': points,
-    'reason': reason,
-  }, AwardXpResult.fromJson);
-
   Future<MasteryProfile> useFreezeToken() => _api.post<MasteryProfile>(
     '/v1/mastery/freeze-token',
     const <String, Object?>{},

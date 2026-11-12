@@ -1,5 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 
+const STREAK_WINDOW_DAYS = 366;
+
 function dayKey(value: Date, timezone: string): string {
   try {
     const parts = new Intl.DateTimeFormat('en-CA', {
@@ -131,12 +133,16 @@ export class ProgressService {
   }
 
   public async streak(userId: string) {
+    // Bound the scan: streak math never needs the full history, and an
+    // unbounded read grows forever for long-tenured learners. The stored
+    // longest streak is merged below so this window cannot shrink it.
+    const since = new Date(Date.now() - STREAK_WINDOW_DAYS * 86_400_000);
     const [lessons, reviews, speaking, conversations, attempts, preferences, profile] = await Promise.all([
-      this.database.lessonProgress.findMany({ where: { userId }, select: { completedAt: true } }),
-      this.database.reviewSchedule.findMany({ where: { userId, lastReviewedAt: { not: null } }, select: { lastReviewedAt: true } }),
-      this.database.speakingSession.findMany({ where: { userId, completedAt: { not: null }, deletedAt: null }, select: { completedAt: true } }),
-      this.database.conversation.findMany({ where: { userId, finishedAt: { not: null } }, select: { finishedAt: true } }),
-      this.database.ieltsAttempt.findMany({ where: { userId, finishedAt: { not: null } }, select: { finishedAt: true } }),
+      this.database.lessonProgress.findMany({ where: { userId, completedAt: { gte: since } }, select: { completedAt: true } }),
+      this.database.reviewSchedule.findMany({ where: { userId, lastReviewedAt: { gte: since } }, select: { lastReviewedAt: true } }),
+      this.database.speakingSession.findMany({ where: { userId, completedAt: { gte: since }, deletedAt: null }, select: { completedAt: true } }),
+      this.database.conversation.findMany({ where: { userId, finishedAt: { gte: since } }, select: { finishedAt: true } }),
+      this.database.ieltsAttempt.findMany({ where: { userId, finishedAt: { gte: since } }, select: { finishedAt: true } }),
       this.database.streakState.findUnique({ where: { userId } }),
       this.database.profile.findUnique({ where: { userId }, select: { timezone: true } }),
     ]);

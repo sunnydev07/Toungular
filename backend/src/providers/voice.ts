@@ -1,6 +1,8 @@
 import type { AppEnv } from '../config/env.js';
 import { AppError } from '../lib/http.js';
 
+const PROVIDER_TIMEOUT_MS = 20_000;
+
 export type VoiceConfig = {
   voiceId?: string | undefined;
   language?: string | undefined;
@@ -39,6 +41,7 @@ export class GoogleCloudTts implements TtsProvider {
         },
         audioConfig: { audioEncoding: 'MP3', speakingRate: speed(config.speed) },
       }),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     });
     await ensureOk(response, 'Google Cloud TTS');
     const payload = await response.json() as { audioContent?: string };
@@ -71,6 +74,7 @@ export class ElevenLabsTts implements TtsProvider {
           model_id: 'eleven_multilingual_v2',
           voice_settings: { stability: 0.5, similarity_boost: 0.75 },
         }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       },
     );
     await ensureOk(response, 'ElevenLabs');
@@ -97,6 +101,7 @@ export class OpenAiTts implements TtsProvider {
         response_format: 'mp3',
         speed: speed(config.speed),
       }),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     });
     await ensureOk(response, 'OpenAI TTS');
     return { audio: Buffer.from(await response.arrayBuffer()), contentType: 'audio/mpeg' };
@@ -116,6 +121,7 @@ export class WhisperStt implements SttProvider {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.apiKey}` },
       body: form,
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     });
     await ensureOk(response, 'Whisper');
     const payload = await response.json() as { text?: string };
@@ -136,6 +142,7 @@ export class DeepgramStt implements SttProvider {
         'Content-Type': contentType,
       },
       body: new Uint8Array(audio),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     });
     await ensureOk(response, 'Deepgram');
     const payload = await response.json() as {

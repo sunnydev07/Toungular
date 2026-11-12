@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:toungular/core/network/api_client.dart';
+import 'package:toungular/core/network/session_manager.dart';
 import 'package:toungular/core/storage/session_store.dart';
 import 'package:toungular/features/vocabulary/vocabulary_repository.dart';
 import 'package:toungular/shared/models/learning_models.dart';
@@ -54,7 +55,7 @@ void main() {
       ),
     );
 
-    final api = ApiClient(_FakeSessionStore(session), dio: dio);
+    final api = ApiClient(SessionManager(_FakeSessionStore(session)), dio: dio);
     final repo = VocabularyRepository(api, _FakeSessionStore(session));
 
     // When network fails, it enqueues to the queue without crashing despite existing corrupted JSON
@@ -88,7 +89,7 @@ void main() {
       ),
     );
 
-    final api = ApiClient(_FakeSessionStore(session), dio: dio);
+    final api = ApiClient(SessionManager(_FakeSessionStore(session)), dio: dio);
     final repo = VocabularyRepository(api, _FakeSessionStore(session));
 
     // Calling submitReview attempts to flushPending first

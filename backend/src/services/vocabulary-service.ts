@@ -218,19 +218,32 @@ export class VocabularyService {
     context: string | null,
     now: Date,
   ): Promise<number> {
-    const items = await this.database.vocabularyItem.findMany({ where: { id: { in: itemIds } } });
-    let created = 0;
-    for (const item of items) {
-      const schedule = await this.database.reviewSchedule.findUnique({
-        where: { userId_vocabularyId: { userId, vocabularyId: item.id } },
+    return this.database.$transaction(async (transaction) => {
+      const items = await transaction.vocabularyItem.findMany({
+        where: { id: { in: itemIds } },
+        select: { id: true },
       });
-      if (schedule) continue;
-      await this.database.reviewSchedule.create({
-        data: { userId, vocabularyId: item.id, dueAt: now, source, context },
+      if (items.length === 0) return 0;
+
+      const existing = await transaction.reviewSchedule.findMany({
+        where: { userId, vocabularyId: { in: items.map((item) => item.id) } },
+        select: { vocabularyId: true },
       });
-      created += 1;
-    }
-    return created;
+      const alreadyScheduled = new Set(existing.map((item) => item.vocabularyId));
+      const missing = items.filter((item) => !alreadyScheduled.has(item.id));
+      if (missing.length === 0) return 0;
+
+      const created = await transaction.reviewSchedule.createMany({
+        data: missing.map((item) => ({
+          userId,
+          vocabularyId: item.id,
+          dueAt: now,
+          source,
+          context,
+        })),
+      });
+      return created.count;
+    });
   }
 
   private async scheduleNew(

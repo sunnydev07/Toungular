@@ -25,45 +25,28 @@ class TodayScreen extends ConsumerStatefulWidget {
 }
 
 class _TodayScreenState extends ConsumerState<TodayScreen> {
-  late Future<_TodayData> _data;
-
-  @override
-  void initState() {
-    super.initState();
-    _data = _load();
-  }
-
-  Future<_TodayData> _load() async {
-    final roadmapFuture = ref.read(roadmapRepositoryProvider).load();
-
-    // The roadmap drives the screen's error states; the rest degrade to empty.
-    Future<T?> soft<T>(Future<T> request) =>
-        request.then<T?>((value) => value, onError: (_) => null);
-
-    // Same source as the Progress tab's streak card, so the two never disagree.
-    final streakFuture = soft(
-      ref.read(progressRepositoryProvider).loadStreak(),
-    );
-    final historyFuture = soft(ref.read(speakingRepositoryProvider).history());
-    final dueFuture = soft(
-      ref.read(vocabularyRepositoryProvider).loadDueItems(),
-    );
-
-    return _TodayData(
-      roadmap: await roadmapFuture,
-      streak: await streakFuture,
-      history: await historyFuture ?? const <SpeakingSessionSummary>[],
-      due: await dueFuture ?? const <VocabularyReview>[],
-    );
-  }
-
   Future<void> _refresh() async {
-    final next = _load();
-    setState(() => _data = next);
+    ref.invalidate(roadmapProvider);
+    ref.invalidate(streakProvider);
+    ref.invalidate(speakingHistoryProvider);
+    ref.invalidate(dueVocabularyProvider);
     try {
-      await next;
+      await ref.read(roadmapProvider.future);
     } catch (_) {
-      // The FutureBuilder shows the recoverable error state below.
+      // The error card below reports the recoverable failure.
+    }
+    await Future.wait<void>(<Future<void>>[
+      _settle(ref.read(streakProvider.future)),
+      _settle(ref.read(speakingHistoryProvider.future)),
+      _settle(ref.read(dueVocabularyProvider.future)),
+    ]);
+  }
+
+  Future<void> _settle(Future<Object?> request) async {
+    try {
+      await request;
+    } catch (_) {
+      // The secondary cards fall back to their empty state.
     }
   }
 
@@ -81,14 +64,11 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refresh,
-          child: FutureBuilder<_TodayData>(
-            future: _data,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting)
-                return const _Skeleton();
-              if (snapshot.hasError) {
-                final error = snapshot.error;
-                return ListView(
+          child: ref
+              .watch(roadmapProvider)
+              .when(
+                loading: () => const _Skeleton(),
+                error: (error, _) => ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(ToungularSpace.l),
                   children: <Widget>[
@@ -112,11 +92,22 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                         ),
                       ),
                   ],
-                );
-              }
-              return _content(context, snapshot.data!, email);
-            },
-          ),
+                ),
+                data: (roadmap) => _content(
+                  context,
+                  _TodayData(
+                    roadmap: roadmap,
+                    streak: ref.watch(streakProvider).value,
+                    history:
+                        ref.watch(speakingHistoryProvider).value ??
+                        const <SpeakingSessionSummary>[],
+                    due:
+                        ref.watch(dueVocabularyProvider).value ??
+                        const <VocabularyReview>[],
+                  ),
+                  email,
+                ),
+              ),
         ),
       ),
     );

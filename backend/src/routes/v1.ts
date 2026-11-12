@@ -41,6 +41,14 @@ const loginSchema = z.object({
   password: z.string().min(8).max(128),
 });
 const refreshSchema = z.object({ refreshToken: z.string().min(32).max(256) });
+const logoutSchema = z.object({
+  refreshToken: z.string().min(32).max(256).optional(),
+  allSessions: z.boolean().optional(),
+});
+const historyQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(30),
+  offset: z.coerce.number().int().min(0).default(0),
+});
 const reviewSchema = z.object({
   grade: z.enum(['again', 'hard', 'good', 'easy']),
   mode: z.enum(['definition', 'cloze', 'audio', 'sentence']).optional(),
@@ -113,12 +121,6 @@ const calibrateLevelSchema = z.object({
   targetWords: z.array(z.string().trim().min(1).max(80)).optional(),
 });
 
-const masteryAwardSchema = z.object({
-  category: z.enum(['fluency', 'lexical', 'acoustic', 'interaction']),
-  points: z.number().int().min(1).max(1000),
-  reason: z.string().trim().min(1).max(200),
-});
-
 const pronunciationAnalyzeSchema = z.object({
   targetChoice: z.enum(['A', 'B']),
   transcript: z.string().trim().min(1).max(1000),
@@ -167,6 +169,11 @@ export function createV1Router(dependencies: V1Dependencies): Router {
   router.post('/auth/refresh', asyncRoute(async (request, response) => {
     const { refreshToken } = refreshSchema.parse(request.body);
     response.status(200).json({ data: await dependencies.auth.refresh(refreshToken) });
+  }));
+  router.post('/auth/logout', authenticate, asyncRoute(async (request, response) => {
+    const input = logoutSchema.parse(request.body ?? {});
+    await dependencies.auth.logout(authenticatedUserId(request), input.refreshToken, input.allSessions ?? false);
+    response.status(200).json({ data: { revoked: true } });
   }));
 
   router.get('/me', authenticate, asyncRoute(async (request, response) => {
@@ -262,7 +269,10 @@ export function createV1Router(dependencies: V1Dependencies): Router {
     response.status(200).json({ data });
   }));
   router.get('/speaking-sessions', authenticate, asyncRoute(async (request, response) => {
-    response.status(200).json({ data: await dependencies.speaking.history(authenticatedUserId(request)) });
+    const { limit, offset } = historyQuerySchema.parse(request.query);
+    response.status(200).json({
+      data: await dependencies.speaking.history(authenticatedUserId(request), limit, offset),
+    });
   }));
 
   router.get('/coach/scenarios', authenticate, asyncRoute(async (_request, response) => {
@@ -284,7 +294,10 @@ export function createV1Router(dependencies: V1Dependencies): Router {
     response.status(200).json({ data: await dependencies.coach.finish(authenticatedUserId(request), paramString(request.params.id)) });
   }));
   router.get('/conversations/:id', authenticate, asyncRoute(async (request, response) => {
-    response.status(200).json({ data: await dependencies.coach.load(authenticatedUserId(request), paramString(request.params.id)) });
+    const { limit, offset } = historyQuerySchema.parse(request.query);
+    response.status(200).json({
+      data: await dependencies.coach.load(authenticatedUserId(request), paramString(request.params.id), limit, offset),
+    });
   }));
   router.delete('/conversations/:id', authenticate, asyncRoute(async (request, response) => {
     await dependencies.coach.remove(authenticatedUserId(request), paramString(request.params.id));
@@ -295,7 +308,10 @@ export function createV1Router(dependencies: V1Dependencies): Router {
     response.status(200).json({ data: dependencies.ielts.loadMocks() });
   }));
   router.get('/ielts/attempts', authenticate, asyncRoute(async (request, response) => {
-    response.status(200).json({ data: await dependencies.ielts.history(authenticatedUserId(request)) });
+    const { limit, offset } = historyQuerySchema.parse(request.query);
+    response.status(200).json({
+      data: await dependencies.ielts.history(authenticatedUserId(request), limit, offset),
+    });
   }));
   router.post('/ielts/attempts', authenticate, asyncRoute(async (request, response) => {
     const input = ieltsStartSchema.parse(request.body);
@@ -439,17 +455,6 @@ export function createV1Router(dependencies: V1Dependencies): Router {
   router.get('/mastery/profile', authenticate, asyncRoute(async (request, response) => {
     const profile = await dependencies.mastery.getProfile(authenticatedUserId(request));
     response.status(200).json({ data: profile });
-  }));
-
-  router.post('/mastery/award', authenticate, asyncRoute(async (request, response) => {
-    const input = masteryAwardSchema.parse(request.body);
-    const result = await dependencies.mastery.awardXp(
-      authenticatedUserId(request),
-      input.category,
-      input.points,
-      input.reason,
-    );
-    response.status(200).json({ data: result });
   }));
 
   router.post('/mastery/freeze-token', authenticate, asyncRoute(async (request, response) => {
