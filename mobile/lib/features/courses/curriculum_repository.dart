@@ -27,7 +27,7 @@ class CurriculumRepository {
 
   Future<LessonContent> loadLesson(String lessonId) async {
     final user = await _sessions.readSession();
-    final key = _lessonPrefix + (user?.userId ?? 'guest') + '.' + lessonId;
+    final key = '$_lessonPrefix${user?.userId ?? 'guest'}.$lessonId';
     try {
       final lesson = await _api.get<LessonContent>(
         '/v1/lessons/$lessonId',
@@ -86,8 +86,9 @@ class CurriculumRepository {
       return result;
     } on ApiException catch (error) {
       if (error.failure != ApiFailure.network &&
-          error.failure != ApiFailure.server)
+          error.failure != ApiFailure.server) {
         rethrow;
+      }
       await _enqueue(<String, Object?>{
         'kind': 'complete',
         'lessonId': lessonId,

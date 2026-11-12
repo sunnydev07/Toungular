@@ -68,7 +68,7 @@ class _IeltsScreenState extends ConsumerState<IeltsScreen> {
       final attempt = await ref
           .read(ieltsRepositoryProvider)
           .startAttempt(mock.id);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _activeMock = mock;
           _attempt = attempt;
@@ -78,11 +78,13 @@ class _IeltsScreenState extends ConsumerState<IeltsScreen> {
           _preparationRemaining = null;
           _summary = null;
         });
+      }
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'This timed practice could not start.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -168,16 +170,18 @@ class _IeltsScreenState extends ConsumerState<IeltsScreen> {
       final summary = await ref
           .read(ieltsRepositoryProvider)
           .finishAttempt(attempt.id);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _summary = summary;
           _listData = _loadListData();
         });
+      }
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'Your practice attempt could not be saved.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -193,8 +197,9 @@ class _IeltsScreenState extends ConsumerState<IeltsScreen> {
   _mockList() => FutureBuilder<(List<IeltsMock>, List<IeltsAttemptRecord>)>(
     future: _listData,
     builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting)
+      if (snapshot.connectionState == ConnectionState.waiting) {
         return const Center(child: CircularProgressIndicator());
+      }
       if (snapshot.hasError) {
         final error = snapshot.error;
         return Center(

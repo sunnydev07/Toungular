@@ -1,9 +1,10 @@
-import express, { Router } from 'express';
+import express, { Router, type Request } from 'express';
 import { z } from 'zod';
 
 import type { AppEnv } from '../config/env.js';
 import type { LoginInput, ProfilePatch, RecallMode, RegisterInput, ReviewGrade } from '../contracts.js';
 import { AppError, asyncRoute } from '../lib/http.js';
+import type { QuotaService } from '../lib/quotas.js';
 import { authenticatedUserId, requireAuth } from '../middleware/auth.js';
 import { AuthService } from '../services/auth-service.js';
 import { CoachService } from '../services/coach-service.js';
@@ -11,6 +12,7 @@ import { ContentService } from '../services/content-service.js';
 import { CurriculumService } from '../services/curriculum-service.js';
 import { DecisionService } from '../services/decision-service.js';
 import { ExposureService } from '../services/exposure-service.js';
+import type { IdempotencyService } from '../services/idempotency-service.js';
 import { IeltsService } from '../services/ielts-service.js';
 import { MasteryService } from '../services/mastery-service.js';
 import { MonetizationService } from '../services/monetization-service.js';
@@ -146,11 +148,39 @@ type V1Dependencies = {
   decision: DecisionService;
   mastery: MasteryService;
   pronunciation: PronunciationService;
+  quotas: QuotaService;
+  idempotency: IdempotencyService;
 };
 
 function paramString(param: string | string[] | undefined): string {
   if (Array.isArray(param)) return param[0] ?? '';
   return param ?? '';
+}
+
+/**
+ * Optional client-supplied key that makes analysis and coach-turn retries
+ * idempotent. Keys are scoped per user and resource, so the same key can be
+ * reused across different conversations or sessions without collision.
+ */
+function idempotencyKey(request: Request): string | undefined {
+  const value = request.header('idempotency-key')?.trim();
+  if (!value) return undefined;
+  if (!/^[\w.:-]{8,128}$/.test(value)) {
+    throw new AppError(400, 'INVALID_IDEMPOTENCY_KEY', 'Idempotency-Key must be 8-128 characters of letters, digits, dot, colon, underscore, or dash.');
+  }
+  return value;
+}
+
+async function measured<T>(quotas: QuotaService, operation: () => Promise<T>): Promise<T> {
+  const startedAt = Date.now();
+  try {
+    const value = await operation();
+    quotas.recordProviderCall(true, Date.now() - startedAt);
+    return value;
+  } catch (error) {
+    quotas.recordProviderCall(false, Date.now() - startedAt);
+    throw error;
+  }
 }
 
 export function createV1Router(dependencies: V1Dependencies): Router {
@@ -178,6 +208,15 @@ export function createV1Router(dependencies: V1Dependencies): Router {
 
   router.get('/me', authenticate, asyncRoute(async (request, response) => {
     response.status(200).json({ data: await dependencies.profiles.get(authenticatedUserId(request)) });
+  }));
+  router.get('/usage', authenticate, asyncRoute(async (request, response) => {
+    const userId = authenticatedUserId(request);
+    response.status(200).json({
+      data: {
+        quotas: dependencies.quotas.usageFor(userId),
+        provider: dependencies.quotas.metrics(),
+      },
+    });
   }));
   router.patch('/me', authenticate, asyncRoute(async (request, response) => {
     const patch = profilePatchSchema.parse(request.body) as ProfilePatch;
@@ -264,9 +303,16 @@ export function createV1Router(dependencies: V1Dependencies): Router {
   router.post('/speaking-sessions/:id/analyze', authenticate, asyncRoute(async (request, response) => {
     const input = analyzeSchema.parse(request.body);
     const userId = authenticatedUserId(request);
-    const data = await dependencies.speaking.analyze(userId, paramString(request.params.id), input);
-    await dependencies.mastery.awardXp(userId, 'fluency', 20, 'Speaking practice session');
-    response.status(200).json({ data });
+    const id = paramString(request.params.id);
+    const key = idempotencyKey(request);
+    const analyze = () => dependencies.speaking.analyze(userId, id, input);
+    const outcome = key
+      ? await dependencies.idempotency.run(userId, `speaking-analyze:${id}`, key, analyze)
+      : { value: await analyze(), replayed: false };
+    if (!outcome.replayed) {
+      await dependencies.mastery.awardXp(userId, 'fluency', 20, 'Speaking practice session');
+    }
+    response.status(200).json({ data: outcome.value });
   }));
   router.get('/speaking-sessions', authenticate, asyncRoute(async (request, response) => {
     const { limit, offset } = historyQuerySchema.parse(request.query);
@@ -285,10 +331,20 @@ export function createV1Router(dependencies: V1Dependencies): Router {
   router.post('/conversations/:id/turns', authenticate, asyncRoute(async (request, response) => {
     const input = turnSchema.parse(request.body);
     const userId = authenticatedUserId(request);
-    const result = await dependencies.coach.addTurn(userId, paramString(request.params.id), input.transcript);
-    await dependencies.vocabulary.scheduleEncounterWords(userId, input.transcript, 'coach', new Date());
-    await dependencies.mastery.awardXp(userId, 'interaction', 25, 'AI conversational exchange');
-    response.status(201).json({ data: result });
+    const id = paramString(request.params.id);
+    const key = idempotencyKey(request);
+    const addTurn = () => {
+      dependencies.quotas.consume(userId, 'ai');
+      return measured(dependencies.quotas, () => dependencies.coach.addTurn(userId, id, input.transcript));
+    };
+    const outcome = key
+      ? await dependencies.idempotency.run(userId, `coach-turn:${id}`, key, addTurn)
+      : { value: await addTurn(), replayed: false };
+    if (!outcome.replayed) {
+      await dependencies.vocabulary.scheduleEncounterWords(userId, input.transcript, 'coach', new Date());
+      await dependencies.mastery.awardXp(userId, 'interaction', 25, 'AI conversational exchange');
+    }
+    response.status(201).json({ data: outcome.value });
   }));
   router.post('/conversations/:id/finish', authenticate, asyncRoute(async (request, response) => {
     response.status(200).json({ data: await dependencies.coach.finish(authenticatedUserId(request), paramString(request.params.id)) });
@@ -375,7 +431,9 @@ export function createV1Router(dependencies: V1Dependencies): Router {
   }));
   router.post('/voice/tts', authenticate, asyncRoute(async (request, response) => {
     const input = ttsSchema.parse(request.body);
-    const result = await dependencies.voice.synthesize(input.text, input);
+    const userId = authenticatedUserId(request);
+    dependencies.quotas.consume(userId, 'voice');
+    const result = await measured(dependencies.quotas, () => dependencies.voice.synthesize(input.text, input));
     response
       .status(200)
       .type(result.contentType)
@@ -394,9 +452,13 @@ export function createV1Router(dependencies: V1Dependencies): Router {
       }
       const query = sttQuerySchema.parse(request.query);
       const contentType = query.contentType ?? request.header('content-type') ?? 'audio/mp4';
-      response.status(200).json({
-        data: await dependencies.voice.transcribe(audio, contentType, query.provider),
-      });
+      const userId = authenticatedUserId(request);
+      dependencies.quotas.consume(userId, 'voice');
+      const data = await measured(
+        dependencies.quotas,
+        () => dependencies.voice.transcribe(audio, contentType, query.provider),
+      );
+      response.status(200).json({ data });
     }),
   );
 
@@ -409,16 +471,22 @@ export function createV1Router(dependencies: V1Dependencies): Router {
   router.post('/shadow/analyze', authenticate, asyncRoute(async (request, response) => {
     const input = shadowAnalyzeSchema.parse(request.body);
     const userId = authenticatedUserId(request);
-    const result = await dependencies.shadow.analyze(
+    const key = idempotencyKey(request);
+    const analyze = () => dependencies.shadow.analyze(
       userId,
       input.passageId,
       input.durationSeconds,
       input.transcript,
       input.pauses ?? [],
     );
-    await dependencies.vocabulary.scheduleEncounterWords(userId, input.transcript, 'shadow', new Date());
-    await dependencies.mastery.awardXp(userId, 'acoustic', 20, 'Shadowing speech drill');
-    response.status(200).json({ data: result });
+    const outcome = key
+      ? await dependencies.idempotency.run(userId, 'shadow-analyze', key, analyze)
+      : { value: await analyze(), replayed: false };
+    if (!outcome.replayed) {
+      await dependencies.vocabulary.scheduleEncounterWords(userId, input.transcript, 'shadow', new Date());
+      await dependencies.mastery.awardXp(userId, 'acoustic', 20, 'Shadowing speech drill');
+    }
+    response.status(200).json({ data: outcome.value });
   }));
 
   router.get('/content/articles', authenticate, asyncRoute(async (request, response) => {
@@ -431,24 +499,38 @@ export function createV1Router(dependencies: V1Dependencies): Router {
   router.post('/content/articles/:id/evaluate', authenticate, asyncRoute(async (request, response) => {
     const input = contentEvaluateSchema.parse(request.body);
     const userId = authenticatedUserId(request);
-    const result = await dependencies.content.evaluateOutput(userId, paramString(request.params.id), input.text);
-    await dependencies.vocabulary.scheduleEncounterWords(userId, input.text, 'article_output', new Date());
-    await dependencies.mastery.awardXp(userId, 'lexical', 20, 'Authentic content comprehension output');
-    response.status(200).json({ data: result });
+    const id = paramString(request.params.id);
+    const key = idempotencyKey(request);
+    const evaluate = () => {
+      dependencies.quotas.consume(userId, 'ai');
+      return measured(dependencies.quotas, () => dependencies.content.evaluateOutput(userId, id, input.text));
+    };
+    const outcome = key
+      ? await dependencies.idempotency.run(userId, `content-evaluate:${id}`, key, evaluate)
+      : { value: await evaluate(), replayed: false };
+    if (!outcome.replayed) {
+      await dependencies.vocabulary.scheduleEncounterWords(userId, input.text, 'article_output', new Date());
+      await dependencies.mastery.awardXp(userId, 'lexical', 20, 'Authentic content comprehension output');
+    }
+    response.status(200).json({ data: outcome.value });
   }));
 
   router.post('/decision/affective-state', authenticate, asyncRoute(async (request, response) => {
     const input = affectiveStateSchema.parse(request.body);
-    const result = await dependencies.decision.assessAffectiveState(input);
+    const userId = authenticatedUserId(request);
+    dependencies.quotas.consume(userId, 'ai');
+    const result = await measured(dependencies.quotas, () => dependencies.decision.assessAffectiveState(input));
     response.status(200).json({ data: result });
   }));
 
   router.post('/decision/calibrate-level', authenticate, asyncRoute(async (request, response) => {
     const input = calibrateLevelSchema.parse(request.body);
-    const result = await dependencies.decision.calibrateCefrLevel({
+    const userId = authenticatedUserId(request);
+    dependencies.quotas.consume(userId, 'ai');
+    const result = await measured(dependencies.quotas, () => dependencies.decision.calibrateCefrLevel({
       transcript: input.transcript,
       targetWordsUsed: input.targetWords,
-    });
+    }));
     response.status(200).json({ data: result });
   }));
 
@@ -477,14 +559,22 @@ export function createV1Router(dependencies: V1Dependencies): Router {
   router.post('/pronunciation/pairs/:id/analyze', authenticate, asyncRoute(async (request, response) => {
     const input = pronunciationAnalyzeSchema.parse(request.body);
     const userId = authenticatedUserId(request);
-    const result = await dependencies.pronunciation.analyzeAttempt(
-      userId,
-      paramString(request.params.id),
-      input.targetChoice,
-      input.transcript,
-      input.durationSeconds ?? 3,
-    );
-    response.status(200).json({ data: result });
+    const id = paramString(request.params.id);
+    const key = idempotencyKey(request);
+    const analyze = () => {
+      dependencies.quotas.consume(userId, 'ai');
+      return measured(dependencies.quotas, () => dependencies.pronunciation.analyzeAttempt(
+        userId,
+        id,
+        input.targetChoice,
+        input.transcript,
+        input.durationSeconds ?? 3,
+      ));
+    };
+    const outcome = key
+      ? await dependencies.idempotency.run(userId, `pronunciation-analyze:${id}`, key, analyze)
+      : { value: await analyze(), replayed: false };
+    response.status(200).json({ data: outcome.value });
   }));
 
   return router;

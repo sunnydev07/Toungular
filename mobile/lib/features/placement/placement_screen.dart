@@ -47,10 +47,11 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'Your vocabulary check could not be saved. Try again.',
         );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -62,8 +63,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     body: FutureBuilder<List<PlacementQuestion>>(
       future: _questions,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
+        }
         if (snapshot.hasError) {
           final error = snapshot.error;
           return Center(

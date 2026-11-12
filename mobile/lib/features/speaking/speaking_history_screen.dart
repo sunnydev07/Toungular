@@ -43,11 +43,12 @@ class _SpeakingHistoryScreenState extends ConsumerState<SpeakingHistoryScreen> {
       await _player.play();
       if (mounted) setState(() => _playingId = null);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _playingId = null;
           _error = 'This recording could not be played.';
         });
+      }
     }
   }
 

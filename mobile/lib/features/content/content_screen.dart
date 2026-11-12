@@ -140,10 +140,11 @@ class _ContentScreenState extends ConsumerState<ContentScreen> {
             _outputController.text = text;
           }
         } catch (_) {
-          if (mounted)
+          if (mounted) {
             setState(
               () => _error = 'Transcription failed. Please type your response.',
             );
+          }
         } finally {
           try {
             final file = File(path);
@@ -176,8 +177,9 @@ class _ContentScreenState extends ConsumerState<ContentScreen> {
         _error = null;
       });
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted)
+        if (mounted) {
           setState(() => _recordDuration += const Duration(seconds: 1));
+        }
       });
     }
   }
@@ -317,10 +319,11 @@ class _ContentScreenState extends ConsumerState<ContentScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'Evaluation could not be completed. Try again.',
         );
+      }
     } finally {
       if (mounted) setState(() => _evaluating = false);
     }
@@ -427,7 +430,7 @@ class _ContentScreenState extends ConsumerState<ContentScreen> {
                 return ListView.separated(
                   padding: const EdgeInsets.all(ToungularSpace.l),
                   itemCount: articles.length,
-                  separatorBuilder: (_, __) =>
+                  separatorBuilder: (_, _) =>
                       const SizedBox(height: ToungularSpace.m),
                   itemBuilder: (context, index) {
                     final article = articles[index];

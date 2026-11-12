@@ -39,11 +39,9 @@ class AuthRepository {
     final refreshToken = await _sessions.refreshToken();
     if (refreshToken != null && refreshToken.isNotEmpty) {
       try {
-        await _api.post<Object?>(
-          '/v1/auth/logout',
-          <String, Object?>{'refreshToken': refreshToken},
-          (json) => json,
-        );
+        await _api.post<Object?>('/v1/auth/logout', <String, Object?>{
+          'refreshToken': refreshToken,
+        }, (json) => json);
       } on ApiException {
         // The token expires on its own; still clear the device.
       }

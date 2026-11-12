@@ -33,6 +33,6 @@ class ShadowRepository {
     'passageId': passageId,
     'durationSeconds': durationSeconds,
     'transcript': transcript,
-    if (pauses != null) 'pauses': pauses,
+    'pauses': ?pauses,
   }, ShadowAnalysisResult.fromJson);
 }

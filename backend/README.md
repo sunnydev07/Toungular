@@ -10,6 +10,14 @@ For PostgreSQL, use a `postgresql://` `DATABASE_URL`, generate with `npm run pri
 
 Voice is optional. Set `GOOGLE_TTS_API_KEY`, `ELEVENLABS_API_KEY` plus `ELEVENLABS_VOICE_ID`, `OPENAI_API_KEY`, or `DEEPGRAM_API_KEY` to enable the matching TTS/STT provider; `GET /v1/voice/providers` reflects what is active. Synthesized MP3s are cached under `VOICE_CACHE_DIR` (default `backend/storage/audio-cache`).
 
+## Operations
+
+Requests are logged as structured JSON (pino) with the `X-Request-Id` correlation value, status, and duration; `LOG_LEVEL` controls verbosity. `GET /health` is a liveness check, and `GET /health/ready` probes the database and returns `503` while it is unreachable. The server runs a retention sweep at startup and every six hours: abandoned `draft`/`transcript_saved` speaking sessions older than 48 hours are deleted, `in_progress` IELTS attempts older than 24 hours are marked `abandoned`, and stored idempotency responses older than 24 hours are pruned. `SIGTERM`/`SIGINT` stop accepting requests, disconnect Prisma, and exit.
+
+Paid provider calls are metered per user per UTC day (`AI_DAILY_QUOTA`, `VOICE_DAILY_QUOTA`; over-quota requests return `429 QUOTA_EXCEEDED`). Provider call counts, failures, and latency are aggregated in process and logged when the failure rate crosses `PROVIDER_FAILURE_ALERT_RATE` over `PROVIDER_ALERT_WINDOW_MS`. `GET /v1/usage` returns the caller's daily counters and the process provider metrics.
+
+Coach turns and analysis routes accept an optional `Idempotency-Key` header (8–128 characters). Repeating a request with the same key for the same user and resource returns the stored response instead of re-running the provider, re-awarding XP, or scheduling duplicate vocabulary. Keys expire after 24 hours.
+
 ## JSON envelope and errors
 
 Successful endpoints return `{ "data": ... }`. Errors return `{ "error": { "code": "...", "message": "..." } }`; invalid input includes an `error.details` object, and every error carries the `X-Request-Id` correlation value. Malformed JSON returns `400 INVALID_JSON`, oversized bodies `413 PAYLOAD_TOO_LARGE`, duplicate records `409 CONFLICT`, and throttled auth attempts `429 RATE_LIMITED`. Authenticated requests use `Authorization: Bearer <accessToken>`.
@@ -18,6 +26,9 @@ Successful endpoints return `{ "data": ... }`. Errors return `{ "error": { "code
 
 | Method | Route | Request body | Response `data` |
 | --- | --- | --- | --- |
+| GET | `/health` | — | liveness `{ service, status: "ok" }` |
+| GET | `/health/ready` | — | readiness with a database probe; `503` when the database is unreachable |
+| GET | `/v1/usage` | — | caller's daily AI/voice quota usage and process provider call metrics |
 | POST | `/v1/auth/register` | `email`, `password`, optional profile patch | user, profile, access and refresh tokens |
 | POST | `/v1/auth/login` | `email`, `password` | user, profile, access and refresh tokens |
 | POST | `/v1/auth/refresh` | `refreshToken` | rotated token pair and current profile; replaying a rotated token revokes the whole token family |

@@ -138,6 +138,18 @@ test('logout after a rotation revokes the replacement token too', async () => {
   await assert.rejects(service.refresh(first.refreshToken), unauthorized);
 });
 
+test('two concurrent refreshes of the same token: exactly one succeeds', async () => {
+  const { service, rows } = createHarness();
+  const token = seedToken(rows, 'family-1');
+
+  const results = await Promise.allSettled([service.refresh(token), service.refresh(token)]);
+  const fulfilled = results.filter((result) => result.status === 'fulfilled');
+
+  assert.equal(fulfilled.length, 1);
+  const rejected = results.find((result) => result.status === 'rejected');
+  assert.ok(rejected && rejected.status === 'rejected' && unauthorized(rejected.reason));
+});
+
 test('logout with allSessions revokes every active token', async () => {
   const { service, rows } = createHarness();
   seedToken(rows, 'family-a');

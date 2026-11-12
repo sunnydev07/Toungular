@@ -87,27 +87,29 @@ class ToungularAdsService extends ChangeNotifier {
       finish(false);
     });
 
-    RewardedAd.load(
-      adUnitId: AppEnvironment.rewardedAdUnitId,
-      request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          loaded = ad;
-          loadTimer?.cancel();
-          var earned = false;
-          ad.fullScreenContentCallback = FullScreenContentCallback(
-            onAdDismissedFullScreenContent: (ad) {
-              disposeLoaded();
-              finish(earned);
-            },
-            onAdFailedToShowFullScreenContent: (ad, _) {
-              disposeLoaded();
-              finish(false);
-            },
-          );
-          ad.show(onUserEarnedReward: (_, __) => earned = true);
-        },
-        onAdFailedToLoad: (_) => finish(false),
+    unawaited(
+      RewardedAd.load(
+        adUnitId: AppEnvironment.rewardedAdUnitId,
+        request: const AdRequest(),
+        rewardedAdLoadCallback: RewardedAdLoadCallback(
+          onAdLoaded: (ad) {
+            loaded = ad;
+            loadTimer?.cancel();
+            var earned = false;
+            ad.fullScreenContentCallback = FullScreenContentCallback(
+              onAdDismissedFullScreenContent: (ad) {
+                disposeLoaded();
+                finish(earned);
+              },
+              onAdFailedToShowFullScreenContent: (ad, _) {
+                disposeLoaded();
+                finish(false);
+              },
+            );
+            ad.show(onUserEarnedReward: (_, _) => earned = true);
+          },
+          onAdFailedToLoad: (_) => finish(false),
+        ),
       ),
     );
     return completed.future;

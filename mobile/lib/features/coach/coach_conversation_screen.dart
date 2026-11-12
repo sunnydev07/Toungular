@@ -106,10 +106,11 @@ class _CoachConversationScreenState
       await _player.setFilePath(path);
       await _player.play();
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'Could not generate speech audio for this turn.',
         );
+      }
     } finally {
       if (mounted) setState(() => _playingTurnId = null);
     }
@@ -136,10 +137,11 @@ class _CoachConversationScreenState
             _textController.text = text;
           }
         } catch (_) {
-          if (mounted)
+          if (mounted) {
             setState(
               () => _error = 'Audio transcription failed. You can type your response instead.',
             );
+          }
         } finally {
           try {
             final file = File(path);
@@ -174,8 +176,9 @@ class _CoachConversationScreenState
         _error = null;
       });
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (mounted)
+        if (mounted) {
           setState(() => _recordDuration += const Duration(seconds: 1));
+        }
       });
     }
   }
@@ -207,8 +210,9 @@ class _CoachConversationScreenState
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'Your response was not saved. Try again.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -230,8 +234,9 @@ class _CoachConversationScreenState
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'This practice session could not be finished.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

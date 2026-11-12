@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 
 import type { AppEnv } from '../config/env.js';
 import { AppError } from '../lib/http.js';
+import { logger } from '../lib/logger.js';
 
 export type CoachScenario = {
   id: string;
@@ -204,6 +205,7 @@ export class CoachService {
   ): Promise<{ replyText: string; recast: string | null; provider: { status: string; name: string } }> {
     // 1. Google Gemini 3.5 Flash-Lite (Primary System Two Generative LLM)
     if (this.env?.googleApiKey) {
+      const startedAt = Date.now();
       try {
         const result = await this.callGeminiChat(scenario, turns);
         if (result) {
@@ -215,18 +217,25 @@ export class CoachService {
             },
           };
         }
-      } catch {
-        // Fall back gracefully to secondary provider or heuristics
+      } catch (error) {
+        logger.warn(
+          { err: error, scenarioId: scenario.id, provider: 'gemini', latencyMs: Date.now() - startedAt },
+          'coach provider failed; falling back',
+        );
       }
     }
 
     // 2. OpenAI GPT (Secondary Generative LLM fallback)
     if (this.env?.openAiApiKey) {
+      const startedAt = Date.now();
       try {
         const result = await this.callOpenAiChat(scenario, turns);
         if (result) return { ...result, provider: { status: 'active', name: 'OpenAI GPT' } };
-      } catch {
-        // Fall back gracefully to contextual dialogue engine
+      } catch (error) {
+        logger.warn(
+          { err: error, scenarioId: scenario.id, provider: 'openai', latencyMs: Date.now() - startedAt },
+          'coach provider failed; using heuristic reply',
+        );
       }
     }
 

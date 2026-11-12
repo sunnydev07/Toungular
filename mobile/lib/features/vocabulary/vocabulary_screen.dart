@@ -65,10 +65,11 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'Audio is unavailable right now. You can still answer from the text.',
         );
+      }
     } finally {
       if (mounted) setState(() => _playing = false);
     }
@@ -95,8 +96,9 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'This review could not be saved. Try again.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -138,8 +140,9 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'This word could not be added. Try again.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -168,8 +171,9 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
       child: FutureBuilder<List<VocabularyReview>>(
         future: _items,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting)
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          }
           if (snapshot.hasError) {
             final error = snapshot.error;
             return Center(

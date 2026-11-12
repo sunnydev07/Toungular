@@ -26,6 +26,11 @@ const environmentSchema = z.object({
   OPENCODE_ZEN_API_KEY: z.string().min(8).optional(),
   OPENCODE_ZEN_BASE_URL: z.string().url().default('https://api.opencode.ai/v1'),
   VOICE_CACHE_DIR: z.string().min(1).default('storage/audio-cache'),
+  AI_DAILY_QUOTA: z.coerce.number().int().min(1).max(100_000).default(200),
+  VOICE_DAILY_QUOTA: z.coerce.number().int().min(1).max(100_000).default(500),
+  PROVIDER_FAILURE_ALERT_RATE: z.coerce.number().min(0).max(1).default(0.25),
+  PROVIDER_ALERT_WINDOW_MS: z.coerce.number().int().min(1_000).max(86_400_000).default(300_000),
+  PROVIDER_ALERT_MIN_CALLS: z.coerce.number().int().min(1).max(10_000).default(20),
 });
 
 export type AppEnv = {
@@ -43,6 +48,11 @@ export type AppEnv = {
   opencodeZenApiKey: string | undefined;
   opencodeZenBaseUrl: string;
   voiceCacheDir: string;
+  aiDailyQuota: number;
+  voiceDailyQuota: number;
+  providerFailureAlertRate: number;
+  providerAlertWindowMs: number;
+  providerAlertMinimumCalls: number;
 };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
@@ -69,5 +79,10 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     opencodeZenApiKey: parsed.data.OPENCODE_ZEN_API_KEY,
     opencodeZenBaseUrl: parsed.data.OPENCODE_ZEN_BASE_URL,
     voiceCacheDir: parsed.data.VOICE_CACHE_DIR,
+    aiDailyQuota: parsed.data.AI_DAILY_QUOTA,
+    voiceDailyQuota: parsed.data.VOICE_DAILY_QUOTA,
+    providerFailureAlertRate: parsed.data.PROVIDER_FAILURE_ALERT_RATE,
+    providerAlertWindowMs: parsed.data.PROVIDER_ALERT_WINDOW_MS,
+    providerAlertMinimumCalls: parsed.data.PROVIDER_ALERT_MIN_CALLS,
   };
 }

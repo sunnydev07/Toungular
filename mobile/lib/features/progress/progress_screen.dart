@@ -62,8 +62,9 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'Your reminder preference could not be saved.');
+      }
     } finally {
       if (mounted) setState(() => _savingReminder = false);
     }

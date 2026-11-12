@@ -20,8 +20,9 @@ class AdPlacementPolicy {
   const AdPlacementPolicy();
 
   bool canShow(AdPlacement placement, AppInteractionState state) {
-    if (!state.adsConfigured || !state.hasAdConsent || state.isPremium)
+    if (!state.adsConfigured || !state.hasAdConsent || state.isPremium) {
       return false;
+    }
     if (state.isRecording || state.isVoiceConversationActive) return false;
     return switch (placement) {
       AdPlacement.homeBanner ||

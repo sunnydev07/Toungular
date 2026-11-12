@@ -43,10 +43,11 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'Your progress could not be saved. Please retry.',
         );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

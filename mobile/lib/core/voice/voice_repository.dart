@@ -60,9 +60,12 @@ class VoiceRepository {
     double? speed,
   }) async {
     final key = _cacheKey(
-      <String>[provider ?? 'auto', voiceId ?? '', '${speed ?? 1}', text].join(
-        '|',
-      ),
+      <String>[
+        provider ?? 'auto',
+        voiceId ?? '',
+        '${speed ?? 1}',
+        text,
+      ].join('|'),
     );
     final file = File(
       '${_cacheDir.path}${Platform.pathSeparator}toungular-voice-$key.mp3',

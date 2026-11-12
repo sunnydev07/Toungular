@@ -88,10 +88,7 @@ class VocabularyRepository {
         'Unknown vocabulary review grade.',
       );
     }
-    final payload = <String, Object?>{
-      'grade': grade,
-      if (mode != null) 'mode': mode,
-    };
+    final payload = <String, Object?>{'grade': grade, 'mode': ?mode};
     try {
       await _flushPending();
       await _api.post<Object?>(
@@ -101,8 +98,9 @@ class VocabularyRepository {
       );
     } on ApiException catch (error) {
       if (error.failure != ApiFailure.network &&
-          error.failure != ApiFailure.server)
+          error.failure != ApiFailure.server) {
         rethrow;
+      }
       await _enqueue(<String, Object?>{'itemId': itemId, ...payload});
     }
     await _removeFromCachedDue(itemId);
@@ -121,7 +119,7 @@ class VocabularyRepository {
     'definition': definition,
     'example': example,
     'level': level,
-    if (tier != null) 'tier': tier,
+    'tier': ?tier,
   }, VocabularyReview.fromJson);
 
   Future<void> _flushPending() async {

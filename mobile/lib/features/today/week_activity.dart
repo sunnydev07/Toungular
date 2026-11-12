@@ -34,8 +34,9 @@ WeekActivity weekActivity(
   for (final raw in completedAt) {
     if (raw == null) continue;
     final at = raw.toLocal();
-    if (at.isBefore(weekStart) || at.isAfter(local) || !at.isBefore(weekEnd))
+    if (at.isBefore(weekStart) || at.isAfter(local) || !at.isBefore(weekEnd)) {
       continue;
+    }
     sessions++;
     days[at.weekday - 1] = true;
   }

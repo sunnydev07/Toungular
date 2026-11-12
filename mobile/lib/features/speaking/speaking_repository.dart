@@ -62,7 +62,7 @@ class SpeakingRepository {
     '/v1/speaking-sessions/$id/analyze',
     <String, Object?>{
       'durationSeconds': durationSeconds.clamp(1, 600),
-      if (transcript != null) 'transcript': transcript,
+      'transcript': ?transcript,
       if (pauses.isNotEmpty) 'pauses': pauses,
     },
     SpeakingFeedback.fromJson,

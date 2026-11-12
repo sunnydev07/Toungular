@@ -108,17 +108,19 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
         _loading = false;
       });
     } on ApiException catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = error.message;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = 'Could not load shadowing passages.';
           _loading = false;
         });
+      }
     }
   }
 
@@ -144,16 +146,18 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'Model audio preview is unavailable right now.',
         );
+      }
     } finally {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _modelPlaying = false;
           _busy = false;
         });
+      }
     }
   }
 
@@ -221,8 +225,7 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
         // Never pre-fill the reference passage: the score must reflect what
         // the learner actually said, not the model text.
         setState(
-          () => _error =
-              'Speech-to-text is unavailable. Type what you actually said, then analyze.',
+          () => _error = 'Speech-to-text is unavailable. Type what you actually said, then analyze.',
         );
       }
     } catch (_) {
@@ -247,8 +250,7 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
     } catch (_) {
       if (mounted) {
         setState(
-          () => _error =
-              'Transcription failed. Your recording is saved — type what you said, or record again.',
+          () => _error = 'Transcription failed. Your recording is saved — type what you said, or record again.',
         );
       }
     } finally {
@@ -276,8 +278,7 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
     if (passage == null) return;
     if (_userAudioPath == null || _seconds < 1) {
       setState(
-        () => _error =
-            'Record your attempt before analyzing so the session length can be measured.',
+        () => _error = 'Record your attempt before analyzing so the session length can be measured.',
       );
       return;
     }
@@ -312,8 +313,9 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'Shadow analysis could not be completed.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

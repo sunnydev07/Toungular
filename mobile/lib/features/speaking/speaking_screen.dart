@@ -186,8 +186,9 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
           .onAmplitudeChanged(const Duration(milliseconds: 250))
           .listen(_trackAmplitude);
       ref.read(voiceActivityProvider.notifier).setActive(true);
-      if (mounted && !MediaQuery.disableAnimationsOf(context))
+      if (mounted && !MediaQuery.disableAnimationsOf(context)) {
         _pulse.repeat(reverse: true);
+      }
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted) return;
         final limit = widget.maxDurationSeconds;
@@ -202,10 +203,11 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'Recording could not start. Check microphone access and try again.',
         );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -258,11 +260,12 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
         );
       }
     } finally {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _busy = false;
           _level = 0;
         });
+      }
     }
   }
 
@@ -302,7 +305,8 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
     if (path == null || !await File(path).exists()) {
       if (mounted) {
         setState(
-          () => _error = 'This recording is no longer available on this device.',
+          () =>
+              _error = 'This recording is no longer available on this device.',
         );
       }
       return;
@@ -311,8 +315,9 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
       await _player.setFilePath(path);
       unawaited(_player.play());
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'This recording could not be played.');
+      }
     }
   }
 
@@ -321,7 +326,8 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
     if (path == null || !await File(path).exists()) {
       if (mounted) {
         setState(
-          () => _error = 'This recording is no longer available on this device.',
+          () =>
+              _error = 'This recording is no longer available on this device.',
         );
       }
       return;
@@ -339,10 +345,11 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'Transcription is unavailable right now. Type what you said instead.',
         );
+      }
     } finally {
       if (mounted) setState(() => _transcribing = false);
     }
@@ -391,16 +398,18 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
       if (level != null) {
         try {
           await ref.read(exposureRepositoryProvider).complete(level);
-          if (mounted)
+          if (mounted) {
             setState(
               () => _exposureMessage = 'Comfort level $level session recorded.',
             );
+          }
         } on ApiException catch (error) {
-          if (mounted)
+          if (mounted) {
             setState(
               () => _exposureMessage =
                   'Your feedback is ready, but the comfort level could not be updated: ${error.message}',
             );
+          }
         }
       }
       if (mounted) setState(() => _feedback = feedback);
@@ -418,10 +427,11 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'Feedback is unavailable right now. Your draft remains on this screen.',
         );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

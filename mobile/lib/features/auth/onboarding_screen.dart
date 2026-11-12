@@ -74,8 +74,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'Your profile could not be saved. Try again.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -186,7 +187,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         ),
                       ),
                       Text(
-                        _dailyMinutes.round().toString() + ' min',
+                        '${_dailyMinutes.round()} min',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ],
@@ -196,7 +197,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     min: 5,
                     max: 60,
                     divisions: 11,
-                    label: _dailyMinutes.round().toString() + ' minutes',
+                    label: '${_dailyMinutes.round()} minutes',
                     onChanged: _busy
                         ? null
                         : (value) => setState(() => _dailyMinutes = value),

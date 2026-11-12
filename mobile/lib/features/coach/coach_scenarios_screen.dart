@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -34,14 +36,15 @@ class _CoachScenariosScreenState extends ConsumerState<CoachScenariosScreen> {
       final conversation = await ref
           .read(coachRepositoryProvider)
           .start(scenario.id);
-      if (mounted) context.push('/coach/${conversation.id}');
+      if (mounted) unawaited(context.push('/coach/${conversation.id}'));
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'This practice scenario could not start. Try again.',
         );
+      }
     } finally {
       if (mounted) setState(() => _startingId = null);
     }
@@ -53,8 +56,9 @@ class _CoachScenariosScreenState extends ConsumerState<CoachScenariosScreen> {
     body: FutureBuilder<List<CoachScenario>>(
       future: _scenarios,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
+        }
         if (snapshot.hasError) {
           final error = snapshot.error;
           return Center(

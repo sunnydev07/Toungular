@@ -1,6 +1,8 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { ZodError } from 'zod';
 
+import { logger } from './logger.js';
+
 export class AppError extends Error {
   public constructor(
     public readonly status: number,
@@ -73,7 +75,7 @@ export const jsonErrorHandler: ErrorRequestHandler = (error: unknown, _request, 
     return;
   }
 
-  console.error('Unhandled API error', error);
+  logger.error({ requestId: id, err: error }, 'unhandled api error');
   response.status(500).json({
     error: { code: 'INTERNAL_ERROR', message: 'An unexpected server error occurred.', ...correlation },
   });

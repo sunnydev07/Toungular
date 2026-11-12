@@ -53,17 +53,19 @@ class _ToungularPlusScreenState extends ConsumerState<ToungularPlusScreen> {
       await ref
           .read(monetizationRepositoryProvider)
           .redeem(_codeController.text.trim());
-      if (mounted)
+      if (mounted) {
         setState(() {
           _message = 'Referral code saved.';
           _codeController.clear();
           _data = _load();
         });
+      }
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'This code could not be redeemed. Try again.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -77,11 +79,12 @@ class _ToungularPlusScreenState extends ConsumerState<ToungularPlusScreen> {
     });
     try {
       await ref.read(monetizationRepositoryProvider).restore();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _message = 'Purchase restore complete.';
           _data = _load();
         });
+      }
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
@@ -97,8 +100,9 @@ class _ToungularPlusScreenState extends ConsumerState<ToungularPlusScreen> {
     body: FutureBuilder<(EntitlementSnapshot, ReferralSummary)>(
       future: _data,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
+        }
         if (snapshot.hasError) {
           final error = snapshot.error;
           return Center(
@@ -200,10 +204,11 @@ class _ToungularPlusScreenState extends ConsumerState<ToungularPlusScreen> {
                             await Clipboard.setData(
                               ClipboardData(text: referral.code),
                             );
-                            if (context.mounted)
+                            if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Code copied.')),
                               );
+                            }
                           },
                           icon: const Icon(Icons.copy),
                         ),

@@ -43,18 +43,20 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
         isPremium: entitlement.premium,
         voiceActive: ref.read(voiceActivityProvider),
       );
-      if (mounted)
+      if (mounted) {
         setState(() {
           _bonusUnlocked = earned;
           _rewardMessage = earned
               ? null
               : 'A rewarded ad is not available right now.';
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _rewardMessage = 'A rewarded ad is not available right now.',
         );
+      }
     } finally {
       if (mounted) setState(() => _rewardLoading = false);
     }

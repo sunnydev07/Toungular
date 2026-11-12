@@ -49,10 +49,11 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'Your account could not be deleted. Please try again.',
         );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -80,7 +81,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                     await ref
                         .read(sessionControllerProvider.notifier)
                         .signOut();
-                    if (mounted) context.go('/auth');
+                    if (context.mounted) context.go('/auth');
                   },
             icon: const Icon(Icons.logout),
             label: const Text('Sign out'),

@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Validate both Prisma schemas
+        working-directory: backend
+        run: npm run schema:check
+
+      - name: Generate PostgreSQL client and typecheck
+        working-directory: backend
+        run: |
+          npm run prisma:generate:postgres
+          npx tsc --noEmit -p tsconfig.json
+
+      - name: Generate SQLite client, test, and build
+        working-directory: backend
+        run: |
+          npm run prisma:generate
+          npm test
+          npm run build
+
+  mobile:
+    name: Flutter checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: mobile
+        run: flutter analyze
+
+      - name: Test
+        working-directory: mobile
+        run: flutter test
+
+  postgres-integration:
+    name: PostgreSQL migration and API smoke test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: toungular
+          POSTGRES_PASSWORD: toungular
+          POSTGRES_DB: toungular
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://toungular:toungular@localhost:5432/toungular
+      JWT_SECRET: ci-only-jwt-secret-ci-only-jwt-secret
+      MOBILE_ORIGIN: http://localhost:3000
+      LOG_LEVEL: warn
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate PostgreSQL client
+        working-directory: backend
+        run: npm run prisma:generate:postgres
+
+      - name: Deploy migrations to ephemeral PostgreSQL
+        working-directory: backend
+        run: npx prisma migrate deploy --schema prisma/postgresql/schema.prisma
+
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+
+      - name: Run API smoke test
+        working-directory: backend
+        run: npm run smoke:postgres

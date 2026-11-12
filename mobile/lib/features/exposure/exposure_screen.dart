@@ -67,11 +67,12 @@ class _ExposureScreenState extends ConsumerState<ExposureScreen> {
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () =>
               _error = 'This comfort session could not be recorded. Try again.',
         );
+      }
     } finally {
       if (mounted) setState(() => _busyLevel = null);
     }

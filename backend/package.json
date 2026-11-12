@@ -13,8 +13,10 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "build:postgres": "npm run prisma:generate:postgres && tsc --project tsconfig.json",
-    "test": "tsx --test src/services/*.test.ts src/config/*.test.ts",
+    "test": "tsx --test src/services/*.test.ts src/config/*.test.ts src/lib/*.test.ts src/jobs/*.test.ts src/routes/*.test.ts",
     "schema:check": "node scripts/check-schema.mjs",
+    "retention": "tsx --env-file=.env src/jobs/retention-cli.ts",
+    "smoke:postgres": "node scripts/smoke-postgres.mjs",
     "dev": "tsx --env-file=.env src/server.ts",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate --schema prisma/schema.prisma",
@@ -29,15 +31,20 @@
     "express-rate-limit": "^8.7.4",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
+    "pino": "^10.4.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/express": "^5.0.1",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.15.29",
+    "@types/supertest": "^7.2.1",
     "prisma": "^6.16.2",
+    "supertest": "^7.3.2",
     "tsx": "^4.20.5",
     "typescript": "^5.9.3"
   },
-  "prisma": { "seed": "tsx --env-file=.env prisma/seed.ts" }
+  "prisma": {
+    "seed": "tsx --env-file=.env prisma/seed.ts"
+  }
 }

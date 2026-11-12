@@ -5,12 +5,15 @@ import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
 
 import { loadEnv, type AppEnv } from './config/env.js';
-import { jsonErrorHandler } from './lib/http.js';
+import { asyncRoute, jsonErrorHandler } from './lib/http.js';
+import { logger, requestLogger } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
+import { QuotaService } from './lib/quotas.js';
 import { JevClient } from './providers/jev-client.js';
 import { createV1Router } from './routes/v1.js';
 import { AuthService } from './services/auth-service.js';
 import { CoachService } from './services/coach-service.js';
+import { IdempotencyService } from './services/idempotency-service.js';
 import { ContentService } from './services/content-service.js';
 import { CurriculumService } from './services/curriculum-service.js';
 import { DecisionService } from './services/decision-service.js';
@@ -80,9 +83,17 @@ export function createApp(env: AppEnv = loadEnv()): Express {
   const decision = new DecisionService(jev);
   const mastery = new MasteryService(prisma);
   const pronunciation = new PronunciationService(prisma, decision, mastery);
+  const quotas = new QuotaService({
+    aiDaily: env.aiDailyQuota,
+    voiceDaily: env.voiceDailyQuota,
+    failureAlertRate: env.providerFailureAlertRate,
+    failureWindowMs: env.providerAlertWindowMs,
+    failureAlertMinimumCalls: env.providerAlertMinimumCalls,
+  });
 
   app.disable('x-powered-by');
   app.use(requestId());
+  app.use(requestLogger());
   app.use(helmet());
   app.use(corsForMobile(env.mobileOrigin));
 
@@ -96,6 +107,23 @@ export function createApp(env: AppEnv = loadEnv()): Express {
   app.get('/health', (_request, response) => {
     response.status(200).json({ service: 'toungular-api', status: 'ok' });
   });
+  app.get('/health/ready', asyncRoute(async (_request, response) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      response.status(200).json({
+        service: 'toungular-api',
+        status: 'ready',
+        checks: { database: 'ok' },
+      });
+    } catch (error) {
+      logger.error({ err: error }, 'readiness probe failed');
+      response.status(503).json({
+        service: 'toungular-api',
+        status: 'degraded',
+        checks: { database: 'unavailable' },
+      });
+    }
+  }));
   app.use('/v1', createV1Router({
     env,
     auth: new AuthService(prisma, env),
@@ -115,6 +143,8 @@ export function createApp(env: AppEnv = loadEnv()): Express {
     decision,
     mastery,
     pronunciation,
+    quotas,
+    idempotency: new IdempotencyService(prisma),
   }));
   app.use((_request, response) => {
     response.status(404).json({ error: { code: 'NOT_FOUND', message: 'The requested resource was not found.' } });

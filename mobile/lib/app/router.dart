@@ -31,7 +31,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   // invalidate it; otherwise a rejected session leaves the user on a dead tab.
   final refresh = ValueNotifier<int>(0);
   ref.onDispose(refresh.dispose);
-  ref.listen<SessionState>(sessionControllerProvider, (_, __) {
+  ref.listen<SessionState>(sessionControllerProvider, (_, _) {
     refresh.value += 1;
   });
 
@@ -57,144 +57,148 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
       return null;
     },
-  errorBuilder: (context, state) => Scaffold(
-    appBar: AppBar(title: const Text('Page not found')),
-    body: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          const Text('The requested page could not be found.'),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () => context.go('/'),
-            child: const Text('Back to Home'),
-          ),
-        ],
-      ),
-    ),
-  ),
-  routes: <RouteBase>[
-    GoRoute(path: '/', builder: (context, state) => const AppEntryScreen()),
-    GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
-    GoRoute(
-      path: '/onboarding',
-      builder: (context, state) => const OnboardingScreen(),
-    ),
-    GoRoute(
-      path: '/account',
-      builder: (context, state) => const AccountScreen(),
-    ),
-    GoRoute(path: '/home', builder: (context, state) => const HomeShell()),
-    GoRoute(
-      path: '/courses',
-      builder: (context, state) => const CoursesScreen(),
-    ),
-    GoRoute(
-      path: '/lessons/:lessonId',
-      builder: (context, state) =>
-          LessonScreen(lessonId: state.pathParameters['lessonId']!),
-    ),
-    GoRoute(
-      path: '/vocabulary',
-      builder: (context, state) => const VocabularyScreen(),
-    ),
-    GoRoute(
-      path: '/exposure',
-      builder: (context, state) => const ExposureScreen(),
-    ),
-    GoRoute(
-      path: '/speaking',
-      builder: (context, state) => SpeakingScreen(
-        prompt: state.uri.queryParameters['prompt'],
-        type: state.uri.queryParameters['type'] ?? 'prompt',
-      ),
-    ),
-    GoRoute(
-      path: '/speaking/history',
-      builder: (context, state) => const SpeakingHistoryScreen(),
-    ),
-    GoRoute(
-      path: '/coach',
-      builder: (context, state) => const CoachScenariosScreen(),
-    ),
-    GoRoute(
-      path: '/coach/:conversationId',
-      builder: (context, state) => CoachConversationScreen(
-        conversationId: state.pathParameters['conversationId']!,
-      ),
-    ),
-    GoRoute(path: '/ielts', builder: (context, state) => const IeltsScreen()),
-    GoRoute(
-      path: '/ielts/response',
-      builder: (context, state) {
-        final extra = state.extra;
-        if (extra is! IeltsResponseArgs) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('IELTS Practice')),
-            body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Missing IELTS response details.'),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () => context.go('/ielts'),
-                    child: const Text('Go to IELTS'),
-                  ),
-                ],
-              ),
+    errorBuilder: (context, state) => Scaffold(
+      appBar: AppBar(title: const Text('Page not found')),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Text('The requested page could not be found.'),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => context.go('/'),
+              child: const Text('Back to Home'),
             ),
+          ],
+        ),
+      ),
+    ),
+    routes: <RouteBase>[
+      GoRoute(path: '/', builder: (context, state) => const AppEntryScreen()),
+      GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/account',
+        builder: (context, state) => const AccountScreen(),
+      ),
+      GoRoute(path: '/home', builder: (context, state) => const HomeShell()),
+      GoRoute(
+        path: '/courses',
+        builder: (context, state) => const CoursesScreen(),
+      ),
+      GoRoute(
+        path: '/lessons/:lessonId',
+        builder: (context, state) =>
+            LessonScreen(lessonId: state.pathParameters['lessonId']!),
+      ),
+      GoRoute(
+        path: '/vocabulary',
+        builder: (context, state) => const VocabularyScreen(),
+      ),
+      GoRoute(
+        path: '/exposure',
+        builder: (context, state) => const ExposureScreen(),
+      ),
+      GoRoute(
+        path: '/speaking',
+        builder: (context, state) => SpeakingScreen(
+          prompt: state.uri.queryParameters['prompt'],
+          type: state.uri.queryParameters['type'] ?? 'prompt',
+        ),
+      ),
+      GoRoute(
+        path: '/speaking/history',
+        builder: (context, state) => const SpeakingHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/coach',
+        builder: (context, state) => const CoachScenariosScreen(),
+      ),
+      GoRoute(
+        path: '/coach/:conversationId',
+        builder: (context, state) => CoachConversationScreen(
+          conversationId: state.pathParameters['conversationId']!,
+        ),
+      ),
+      GoRoute(path: '/ielts', builder: (context, state) => const IeltsScreen()),
+      GoRoute(
+        path: '/ielts/response',
+        builder: (context, state) {
+          final extra = state.extra;
+          if (extra is! IeltsResponseArgs) {
+            return Scaffold(
+              appBar: AppBar(title: const Text('IELTS Practice')),
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Missing IELTS response details.'),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: () => context.go('/ielts'),
+                      child: const Text('Go to IELTS'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          return SpeakingScreen(
+            prompt: extra.section.prompt,
+            type: 'ielts',
+            maxDurationSeconds: extra.section.responseSeconds,
+            ieltsAttemptId: extra.attemptId,
+            ieltsSectionId: extra.section.id,
           );
-        }
-        return SpeakingScreen(
-          prompt: extra.section.prompt,
-          type: 'ielts',
-          maxDurationSeconds: extra.section.responseSeconds,
-          ieltsAttemptId: extra.attemptId,
-          ieltsSectionId: extra.section.id,
-        );
-      },
-    ),
-    GoRoute(
-      path: '/progress',
-      builder: (context, state) => const ProgressScreen(),
-    ),
-    GoRoute(
-      path: '/plus',
-      builder: (context, state) => const ToungularPlusScreen(),
-    ),
-    GoRoute(
-      path: '/placement',
-      builder: (context, state) => const PlacementScreen(),
-    ),
-    GoRoute(path: '/shadow', builder: (context, state) => const ShadowScreen()),
-    GoRoute(
-      path: '/shadow/:passageId',
-      builder: (context, state) =>
-          ShadowScreen(passageId: state.pathParameters['passageId']),
-    ),
-    GoRoute(
-      path: '/content',
-      builder: (context, state) => const ContentScreen(),
-    ),
-    GoRoute(
-      path: '/content/:articleId',
-      builder: (context, state) =>
-          ContentScreen(initialArticleId: state.pathParameters['articleId']),
-    ),
-    GoRoute(
-      path: '/pronunciation',
-      builder: (context, state) => const PronunciationLabScreen(),
-    ),
-    GoRoute(
-      path: '/pronunciation/:pairId',
-      builder: (context, state) =>
-          PronunciationLabScreen(initialPairId: state.pathParameters['pairId']),
-    ),
-    GoRoute(
-      path: '/mastery',
-      builder: (context, state) => const MasteryScreen(),
-    ),
+        },
+      ),
+      GoRoute(
+        path: '/progress',
+        builder: (context, state) => const ProgressScreen(),
+      ),
+      GoRoute(
+        path: '/plus',
+        builder: (context, state) => const ToungularPlusScreen(),
+      ),
+      GoRoute(
+        path: '/placement',
+        builder: (context, state) => const PlacementScreen(),
+      ),
+      GoRoute(
+        path: '/shadow',
+        builder: (context, state) => const ShadowScreen(),
+      ),
+      GoRoute(
+        path: '/shadow/:passageId',
+        builder: (context, state) =>
+            ShadowScreen(passageId: state.pathParameters['passageId']),
+      ),
+      GoRoute(
+        path: '/content',
+        builder: (context, state) => const ContentScreen(),
+      ),
+      GoRoute(
+        path: '/content/:articleId',
+        builder: (context, state) =>
+            ContentScreen(initialArticleId: state.pathParameters['articleId']),
+      ),
+      GoRoute(
+        path: '/pronunciation',
+        builder: (context, state) => const PronunciationLabScreen(),
+      ),
+      GoRoute(
+        path: '/pronunciation/:pairId',
+        builder: (context, state) => PronunciationLabScreen(
+          initialPairId: state.pathParameters['pairId'],
+        ),
+      ),
+      GoRoute(
+        path: '/mastery',
+        builder: (context, state) => const MasteryScreen(),
+      ),
     ],
   );
 });
