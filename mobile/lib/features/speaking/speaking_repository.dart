@@ -68,6 +68,10 @@ class SpeakingRepository {
     SpeakingFeedback.fromJson,
   );
 
+  Future<void> deleteSession(String id) async {
+    await _api.delete<Object?>('/v1/speaking-sessions/$id', (json) => json);
+  }
+
   Future<List<SpeakingSessionSummary>> history({CancelToken? cancelToken}) =>
       _api.get<List<SpeakingSessionSummary>>(
         '/v1/speaking-sessions',

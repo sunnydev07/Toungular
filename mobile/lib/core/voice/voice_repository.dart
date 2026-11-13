@@ -78,6 +78,9 @@ class VoiceRepository {
     }
     final bytes = await _api.postBytes('/v1/voice/tts', <String, Object?>{
       'text': text,
+      'provider': ?provider,
+      'voiceId': ?voiceId,
+      'speed': ?speed,
     });
     await file.writeAsBytes(bytes, flush: true);
     final now = DateTime.now();

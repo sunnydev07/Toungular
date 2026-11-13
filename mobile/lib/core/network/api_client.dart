@@ -155,12 +155,21 @@ class ApiClient {
     ResponseType? responseType,
     CancelToken? cancelToken,
   }) async {
+    // One key per logical POST: the 401 replay below reuses it so a retried
+    // write is replayed server-side instead of double-charging quota.
+    final String? idempotencyKey = method == 'POST'
+        ? 'tng-${DateTime.now().microsecondsSinceEpoch}-${path.hashCode.abs()}'
+        : null;
+
     Future<Response<dynamic>> attempt() async => _dio.request<dynamic>(
       path,
       data: body,
       options: Options(
         method: method,
-        headers: await _headers(),
+        headers: <String, Object>{
+          ...await _headers(),
+          'Idempotency-Key': ?idempotencyKey,
+        },
         contentType: contentType,
         responseType: responseType,
       ),

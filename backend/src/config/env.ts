@@ -18,7 +18,7 @@ const environmentSchema = z.object({
   GOOGLE_TTS_API_KEY: z.string().min(8).optional(),
   GOOGLE_API_KEY: z.string().min(8).optional(),
   GEMINI_API_KEY: z.string().min(8).optional(),
-  GEMINI_MODEL: z.string().min(1).default('gemini-3.5-flash-lite'),
+  GEMINI_MODEL: z.string().min(1).default('gemini-2.5-flash-lite'),
   ELEVENLABS_API_KEY: z.string().min(8).optional(),
   ELEVENLABS_VOICE_ID: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(8).optional(),

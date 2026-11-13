@@ -270,6 +270,9 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
   }
 
   Future<void> _discard() async {
+    final abandonedSessionId = _sessionId;
+    final shouldDeleteServerDraft =
+        abandonedSessionId != null && _feedback == null && !_isAnonymous;
     _finishPause();
     await _amplitude?.cancel();
     _amplitude = null;
@@ -298,6 +301,14 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
       _silenceStarted = null;
     });
     ref.read(voiceActivityProvider.notifier).setActive(false);
+    if (shouldDeleteServerDraft) {
+      unawaited(
+        ref
+            .read(speakingRepositoryProvider)
+            .deleteSession(abandonedSessionId)
+            .catchError((_) {}),
+      );
+    }
   }
 
   Future<void> _playRecording() async {
@@ -439,9 +450,12 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
 
   /// The one primary action from feedback: keep the tip, drop the take, record again.
   Future<void> _retryWithTip() async {
-    if (mounted) setState(() => _tip = _feedback?.nextStep);
+    // Capture the tip before _discard() clears _feedback.
+    final nextTip = _feedback?.nextStep;
     await _discard();
-    if (mounted) await _start();
+    if (!mounted) return;
+    setState(() => _tip = nextTip);
+    await _start();
   }
 
   Future<void> _nextPrompt() async {

@@ -21,10 +21,23 @@ function createDatabase() {
         rows.push({ ...data, createdAt: data.createdAt ?? new Date() });
         return data;
       },
-      deleteMany: async ({ where }: { where: { createdAt: { lt: Date } } }) => {
+      update: async ({ where, data }: { where: { userId_scope_key: { userId: string; scope: string; key: string } }; data: { response: string } }) => {
+        const { userId, scope, key } = where.userId_scope_key;
+        const row = rows.find((candidate) => candidate.userId === userId && candidate.scope === scope && candidate.key === key);
+        if (row) row.response = data.response;
+        return row;
+      },
+      deleteMany: async ({ where }: { where: { createdAt?: { lt: Date }; userId?: string; scope?: string; key?: string; response?: string } }) => {
         const before = rows.length;
         for (let index = rows.length - 1; index >= 0; index -= 1) {
-          if (rows[index]!.createdAt < where.createdAt.lt) rows.splice(index, 1);
+          const row = rows[index]!;
+          const matches = where.createdAt
+            ? row.createdAt < where.createdAt.lt
+            : row.userId === where.userId
+              && row.scope === where.scope
+              && row.key === where.key
+              && (where.response === undefined || row.response === where.response);
+          if (matches) rows.splice(index, 1);
         }
         return { count: before - rows.length };
       },
@@ -62,6 +75,53 @@ test('keys are scoped per resource so the same key can be reused elsewhere', asy
   await service.run('user-1', 'speaking-analyze:session-2', 'key-12345678', handler);
 
   assert.equal(calls, 2);
+});
+
+test('a duplicate while the first handler is still running is rejected', async () => {
+  const { database } = createDatabase();
+  const service = new IdempotencyService(database);
+  let release: (() => void) | undefined;
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let calls = 0;
+  const handler = async () => {
+    calls += 1;
+    await blocked;
+    return { reply: 'slow' };
+  };
+
+  const first = service.run('user-1', 'coach-turn:c1', 'key-12345678', handler);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const duplicate = service.run('user-1', 'coach-turn:c1', 'key-12345678', handler);
+
+  await assert.rejects(
+    duplicate,
+    (error: unknown) => (error as { status?: number }).status === 409,
+  );
+  release?.();
+  await first;
+  assert.equal(calls, 1);
+});
+
+test('a failed handler releases the pending claim so a retry can run', async () => {
+  const { database, rows } = createDatabase();
+  const service = new IdempotencyService(database);
+  let calls = 0;
+
+  await assert.rejects(service.run('user-1', 'coach-turn:c1', 'key-12345678', async () => {
+    calls += 1;
+    throw new Error('provider down');
+  }));
+
+  assert.equal(rows.length, 0);
+  const retry = await service.run('user-1', 'coach-turn:c1', 'key-12345678', async () => {
+    calls += 1;
+    return { reply: 'ok' };
+  });
+
+  assert.equal(calls, 2);
+  assert.equal(retry.replayed, false);
 });
 
 test('prune deletes responses older than the retention window', async () => {

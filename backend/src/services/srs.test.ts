@@ -23,6 +23,8 @@ test('again resets repetitions and records a lapse', () => {
   assert.equal(next.intervalDays, 1);
   assert.equal(next.repetitions, 0);
   assert.equal(next.lapses, 2);
+  // One lapse costs a single 0.2 ease step, not the SM-2 polynomial plus 0.2.
+  assert.equal(next.easeFactor, 2.3);
 });
 
 test('recall modes rotate through the four retrieval styles', () => {

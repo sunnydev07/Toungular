@@ -904,12 +904,16 @@ class HabitSnapshot {
     required this.longestDays,
     required this.reminderTime,
     required this.reminderDays,
+    this.activeDates = const <String>[],
   });
 
   final int currentDays;
   final int longestDays;
   final String? reminderTime;
   final List<int> reminderDays;
+
+  /// Recent practice days as `YYYY-MM-DD`, covering every activity type.
+  final List<String> activeDates;
 
   factory HabitSnapshot.fromJson(Object? json) {
     final map = _asMap(json);
@@ -921,6 +925,10 @@ class HabitSnapshot {
           .whereType<num>()
           .map((value) => value.toInt())
           .toList(growable: false),
+      activeDates:
+          (map['activeDates'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<String>()
+              .toList(growable: false),
     );
   }
 }

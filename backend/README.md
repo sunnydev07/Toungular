@@ -48,10 +48,11 @@ Successful endpoints return `{ "data": ... }`. Errors return `{ "error": { "code
 | POST | `/v1/speaking-sessions` | `type`, `prompt` | created speaking session |
 | PUT | `/v1/speaking-sessions/:id/transcript` | `transcript` | saved learner transcript |
 | POST | `/v1/speaking-sessions/:id/analyze` | `durationSeconds`, optional `transcript`, optional `pauses` (seconds) | transparent word-count, pace, filler, pause, and vocabulary-variety estimates with WPM trend; pronunciation unavailable; durations too short for the transcript or pauses longer than the recording return `422` |
+| DELETE | `/v1/speaking-sessions/:id` | — | soft-deletes a discarded draft so it stops appearing in history; `204` on success |
 | GET | `/v1/speaking-sessions` | optional `limit` (1–100), `offset` | paginated practice history, newest first (default 30) |
 | GET | `/v1/coach/scenarios` | — | original practice scenario catalog |
 | POST | `/v1/conversations` | `scenarioId` | created text practice conversation |
-| POST | `/v1/conversations/:id/turns` | `transcript` | saved learner turn and a static practice cue; no AI response |
+| POST | `/v1/conversations/:id/turns` | `transcript` | saved learner turn, the AI Coach reply turn, an optional recast, and a practice cue; repeated `Idempotency-Key`s replay the same turns |
 | GET | `/v1/conversations/:id` | optional `limit` (1–100), `offset` | conversation plus a page of turns, oldest first, and `turnsTotal` (default 30) |
 | POST | `/v1/conversations/:id/finish` | — | completed conversation summary |
 | DELETE | `/v1/conversations/:id` | — | permanently deletes that user's conversation and turns |

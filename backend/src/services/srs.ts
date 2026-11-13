@@ -27,22 +27,23 @@ export function nextSchedule(
 ): SrsNext {
   const mode = options.mode ?? 'definition';
   const quality = QUALITY[grade];
-  let easeFactor = state.easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
-  if (grade !== 'again') {
-    easeFactor += MODE_BONUS[mode];
-    if (options.contextual) easeFactor += 0.05;
-  }
-  easeFactor = Math.min(MAX_EASE, Math.max(MIN_EASE, Number(easeFactor.toFixed(2))));
 
+  // A lapse is one penalty, not the SM-2 polynomial plus another hit: applying
+  // both dropped ease by ~1.0 per "again" and made recovery take weeks.
   if (grade === 'again') {
     return {
       intervalDays: 1,
       repetitions: 0,
-      easeFactor: Math.max(MIN_EASE, Number((easeFactor - 0.2).toFixed(2))),
+      easeFactor: Math.max(MIN_EASE, Number((state.easeFactor - 0.2).toFixed(2))),
       lapses: state.lapses + 1,
       dueAt: addDays(options.now, 1),
     };
   }
+
+  let easeFactor = state.easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+  easeFactor += MODE_BONUS[mode];
+  if (options.contextual) easeFactor += 0.05;
+  easeFactor = Math.min(MAX_EASE, Math.max(MIN_EASE, Number(easeFactor.toFixed(2))));
 
   let intervalDays: number;
   if (state.repetitions === 0) {

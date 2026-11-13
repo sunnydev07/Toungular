@@ -12,9 +12,10 @@ type Item = {
   example: string;
   level: string;
   tier: number;
+  createdByUserId?: string | null;
 };
 
-function item(id: string, word: string, tier: number): Item {
+function item(id: string, word: string, tier: number, createdByUserId?: string): Item {
   return {
     id,
     word,
@@ -23,6 +24,7 @@ function item(id: string, word: string, tier: number): Item {
     example: `An example with ${word}.`,
     level: 'intermediate',
     tier,
+    createdByUserId: createdByUserId ?? null,
   };
 }
 
@@ -58,22 +60,36 @@ function createDatabase(items: Item[]) {
       }),
     },
     vocabularyItem: {
-      findMany: async ({ where, take }: { where: { id?: { in: string[] }; word?: { in: string[] }; schedules?: unknown }; take?: number }) => {
-        const matches = where.id?.in
-          ? items.filter((candidate) => where.id!.in.includes(candidate.id))
+      findMany: async ({ where, take }: { where: { id?: { in: string[] }; word?: { in: string[] }; OR?: Array<{ createdByUserId: string | null }> }; take?: number }) => {
+        let matches = items;
+        if (where.OR) {
+          matches = matches.filter((candidate) => where.OR!.some(
+            (clause) => (candidate.createdByUserId ?? null) === clause.createdByUserId,
+          ));
+        }
+        matches = where.id?.in
+          ? matches.filter((candidate) => where.id!.in.includes(candidate.id))
           : where.word?.in
-            ? items.filter((candidate) => where.word!.in.includes(candidate.word))
-            : items;
+            ? matches.filter((candidate) => where.word!.in.includes(candidate.word))
+            : matches;
         return take ? matches.slice(0, take) : matches;
       },
       findUnique: async ({ where }: { where: { id?: string; word?: string } }) =>
         items.find((candidate) => candidate.id === where.id || candidate.word === where.word) ?? null,
-      create: async ({ data }: { data: Item }) => data,
+      create: async ({ data }: { data: Item }) => {
+        items.push(data);
+        return data;
+      },
+      update: async ({ where, data }: { where: { id: string }; data: Partial<Item> }) => {
+        const found = items.find((candidate) => candidate.id === where.id)!;
+        Object.assign(found, data);
+        return found;
+      },
     },
     lesson: { findUnique: async () => null },
     $transaction: async (callback: (transaction: unknown) => Promise<unknown>) => callback(database),
   };
-  return { database: database as never, schedules };
+  return { database: database as never, schedules, items };
 }
 
 test('getDue fills the remaining slots with unseen items in tier order', async () => {
@@ -89,6 +105,69 @@ test('getDue fills the remaining slots with unseen items in tier order', async (
 
   // Tier 2 is prioritized, then tier 1, then tier 3.
   assert.deepEqual(due.map((review) => review.item.word), ['beta', 'alpha', 'gamma']);
+});
+
+test('another learner\'s manual word never appears in the due queue', async () => {
+  const items = [
+    item('a', 'alpha', 2),
+    item('b', 'private', 2, 'user-a'),
+  ];
+  const { database } = createDatabase(items);
+  const service = new VocabularyService(database);
+  const now = new Date('2026-11-13T10:00:00Z');
+
+  const forB = await service.getDue('user-b', now, false);
+  const forA = await service.getDue('user-a', now, false);
+
+  assert.deepEqual(forB.map((review) => review.item.word), ['alpha']);
+  assert.deepEqual(forA.map((review) => review.item.word), ['alpha', 'private']);
+});
+
+test('addManual tags a new word with its creator', async () => {
+  const { database, items } = createDatabase([]);
+  const service = new VocabularyService(database);
+
+  await service.addManual(
+    'user-a',
+    {
+      word: 'Serendipity',
+      partOfSpeech: 'noun',
+      definition: 'A fortunate discovery.',
+      example: 'Finding the cafe was pure serendipity.',
+      level: 'advanced',
+    },
+    new Date('2026-11-13T10:00:00Z'),
+    false,
+  );
+
+  const created = items.find((candidate) => candidate.word === 'serendipity');
+  assert.equal(created?.createdByUserId, 'user-a');
+});
+
+test('addManual overwrites the definition only for the owner and keeps others\' wording on the schedule', async () => {
+  const { database, items, schedules } = createDatabase([item('a', 'alpha', 2, 'user-a')]);
+  const service = new VocabularyService(database);
+  const now = new Date('2026-11-13T10:00:00Z');
+
+  await service.addManual(
+    'user-a',
+    { word: 'alpha', partOfSpeech: 'adjective', definition: 'Owner wording.', example: 'Owner example.', level: 'advanced' },
+    now,
+    false,
+  );
+  assert.equal(items[0]?.definition, 'Owner wording.');
+
+  await service.addManual(
+    'user-b',
+    { word: 'alpha', partOfSpeech: 'adjective', definition: 'B wording.', example: 'B example.', level: 'advanced' },
+    now,
+    false,
+  );
+  assert.equal(items[0]?.definition, 'Owner wording.');
+  assert.equal(
+    schedules.find((schedule) => schedule.userId === 'user-b')?.context,
+    JSON.stringify({ definition: 'B wording.', example: 'B example.' }),
+  );
 });
 
 test('recordReview rejects a vocabulary item that does not exist', async () => {

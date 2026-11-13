@@ -137,12 +137,21 @@ export class ProgressService {
     // unbounded read grows forever for long-tenured learners. The stored
     // longest streak is merged below so this window cannot shrink it.
     const since = new Date(Date.now() - STREAK_WINDOW_DAYS * 86_400_000);
-    const [lessons, reviews, speaking, conversations, attempts, preferences, profile] = await Promise.all([
+    const [lessons, reviews, speaking, conversations, attempts, freezeSnapshots, preferences, profile] = await Promise.all([
       this.database.lessonProgress.findMany({ where: { userId, completedAt: { gte: since } }, select: { completedAt: true } }),
       this.database.reviewSchedule.findMany({ where: { userId, lastReviewedAt: { gte: since } }, select: { lastReviewedAt: true } }),
       this.database.speakingSession.findMany({ where: { userId, completedAt: { gte: since }, deletedAt: null }, select: { completedAt: true } }),
       this.database.conversation.findMany({ where: { userId, finishedAt: { gte: since } }, select: { finishedAt: true } }),
       this.database.ieltsAttempt.findMany({ where: { userId, finishedAt: { gte: since } }, select: { finishedAt: true } }),
+      // Freeze tokens and shadowing/output sessions are practice days too.
+      this.database.skillSnapshot.findMany({
+        where: {
+          userId,
+          skill: { in: ['streak_freeze', 'shadowing', 'comprehension_output', 'xp_acoustic'] },
+          recordedAt: { gte: since },
+        },
+        select: { recordedAt: true },
+      }),
       this.database.streakState.findUnique({ where: { userId } }),
       this.database.profile.findUnique({ where: { userId }, select: { timezone: true } }),
     ]);
@@ -152,11 +161,29 @@ export class ProgressService {
       ...speaking.flatMap((item) => item.completedAt ? [item.completedAt] : []),
       ...conversations.flatMap((item) => item.finishedAt ? [item.finishedAt] : []),
       ...attempts.flatMap((item) => item.finishedAt ? [item.finishedAt] : []),
+      ...freezeSnapshots.map((item) => item.recordedAt),
     ];
-    const calculated = countStreaks(dates, profile?.timezone ?? 'UTC');
+    const timezone = profile?.timezone ?? 'UTC';
+    const calculated = countStreaks(dates, timezone);
+    const longestDays = Math.max(calculated.longestDays, preferences?.longestDays ?? 0);
+    // Recent active days feed the weekly goal ring, which counts every kind of
+    // practice, not only lessons and speaking sessions.
+    const activeDates = [...new Set(dates.map((date) => dayKey(date, timezone)))]
+      .sort()
+      .reverse()
+      .slice(0, 30);
+    // Persist the derived streak so a longest run survives the bounded scan.
+    if (preferences?.currentDays !== calculated.currentDays || preferences?.longestDays !== longestDays) {
+      await this.database.streakState.upsert({
+        where: { userId },
+        update: { currentDays: calculated.currentDays, longestDays },
+        create: { userId, currentDays: calculated.currentDays, longestDays },
+      });
+    }
     return {
       ...calculated,
-      longestDays: Math.max(calculated.longestDays, preferences?.longestDays ?? 0),
+      longestDays,
+      activeDates,
       reminderTime: preferences?.reminderTime ?? null,
       reminderDays: this.parseDays(preferences?.reminderDays ?? '[]'),
     };

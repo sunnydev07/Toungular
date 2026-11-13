@@ -314,6 +314,10 @@ export function createV1Router(dependencies: V1Dependencies): Router {
     }
     response.status(200).json({ data: outcome.value });
   }));
+  router.delete('/speaking-sessions/:id', authenticate, asyncRoute(async (request, response) => {
+    await dependencies.speaking.remove(authenticatedUserId(request), paramString(request.params.id));
+    response.status(204).end();
+  }));
   router.get('/speaking-sessions', authenticate, asyncRoute(async (request, response) => {
     const { limit, offset } = historyQuerySchema.parse(request.query);
     response.status(200).json({

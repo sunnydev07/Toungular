@@ -132,6 +132,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
           (item) => item.lessons.map((lesson) => lesson.completedAt),
         ),
         ...data.history.map((session) => session.completedAt),
+        // Vocabulary reviews, coach turns, shadowing, and IELTS attempts are
+        // server-side activity days, so the ring counts all practice.
+        ...?data.streak?.activeDates.map(DateTime.tryParse),
       ],
       DateTime.now(),
       target: _weekTarget,

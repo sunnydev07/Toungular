@@ -450,7 +450,7 @@ export class ContentService {
   private async generateGeminiRecast(article: ContentArticle, userText: string): Promise<string | null> {
     const apiKey = this.env?.googleApiKey;
     if (!apiKey) return null;
-    const model = this.env?.geminiModel || 'gemini-3.5-flash-lite';
+    const model = this.env?.geminiModel || 'gemini-2.5-flash-lite';
     const prompt = `You are a warm English linguistics coach.
 The learner wrote an output response for the reading piece "${article.title}" (topic: ${article.topic}):
 "${userText}"

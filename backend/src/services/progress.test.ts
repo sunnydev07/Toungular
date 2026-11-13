@@ -23,7 +23,10 @@ function createDatabase(now: Date) {
       },
     },
     skillSnapshot: {
-      findMany: async ({ where }: { where: { source: unknown } }) => {
+      findMany: async ({ where }: { where: { source?: unknown; skill?: unknown } }) => {
+        if (typeof where.skill === 'object' && where.skill !== null && 'in' in where.skill) {
+          return [{ recordedAt: now }];
+        }
         const source = where.source;
         if (typeof source === 'object' && source !== null && 'in' in source) {
           return [
@@ -81,4 +84,5 @@ test('streak merges the stored longest run and exposes the reminder schedule', a
   assert.equal(streak.reminderTime, '08:00');
   assert.deepEqual(streak.reminderDays, [1, 3]);
   assert.equal(streak.lastActivityOn, now.toISOString().slice(0, 10));
+  assert.ok(streak.activeDates.includes(now.toISOString().slice(0, 10)));
 });

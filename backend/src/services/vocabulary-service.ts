@@ -88,7 +88,10 @@ export class VocabularyService {
     const remaining = DUE_LIMIT - scheduled.length;
     const candidates = remaining > 0
       ? await this.database.vocabularyItem.findMany({
-        where: { schedules: { none: { userId } } },
+        where: {
+          OR: [{ createdByUserId: null }, { createdByUserId: userId }],
+          schedules: { none: { userId } },
+        },
         orderBy: { word: 'asc' },
         take: NEW_ITEM_POOL,
       })
@@ -154,7 +157,25 @@ export class VocabularyService {
   public async addManual(userId: string, input: ManualWordInput, now: Date, ttsAvailable: boolean): Promise<VocabularyReview> {
     const word = input.word.trim().toLowerCase();
     const existing = await this.database.vocabularyItem.findUnique({ where: { word } });
-    if (existing) return this.scheduleNew(userId, existing, 'manual', null, now, ttsAvailable);
+    if (existing) {
+      // Only the owner may overwrite a personal word. Catalog and other users'
+      // entries stay intact; this learner's wording lives on their schedule.
+      if (existing.createdByUserId === userId) {
+        const updated = await this.database.vocabularyItem.update({
+          where: { id: existing.id },
+          data: {
+            partOfSpeech: input.partOfSpeech,
+            definition: input.definition,
+            example: input.example,
+            level: input.level,
+            tier: input.tier ?? tierForLevel(input.level),
+          },
+        });
+        return this.scheduleNew(userId, updated, 'manual', null, now, ttsAvailable);
+      }
+      const context = JSON.stringify({ definition: input.definition, example: input.example });
+      return this.scheduleNew(userId, existing, 'manual', context, now, ttsAvailable);
+    }
 
     const slug = word.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'word';
     const item = await this.database.vocabularyItem.create({
@@ -166,6 +187,7 @@ export class VocabularyService {
         example: input.example,
         level: input.level,
         tier: input.tier ?? tierForLevel(input.level),
+        createdByUserId: userId,
       },
     });
     return this.scheduleNew(userId, item, 'manual', null, now, ttsAvailable);

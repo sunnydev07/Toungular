@@ -110,6 +110,16 @@ export class SpeakingService {
     }));
   }
 
+  /// Soft-deletes a discarded draft so abandoned recordings stop appearing in history.
+  public async remove(userId: string, id: string): Promise<void> {
+    const session = await this.database.speakingSession.findFirst({ where: { id, userId, deletedAt: null } });
+    if (!session) throw new AppError(404, 'SPEAKING_SESSION_NOT_FOUND', 'The speaking session was not found.');
+    await this.database.speakingSession.update({
+      where: { id },
+      data: { deletedAt: new Date(), transcript: null, feedback: null },
+    });
+  }
+
   private async recordFluencySnapshot(userId: string, type: string, wordsPerMinute: number): Promise<void> {
     if (type === 'baseline') {
       const baselineCount = await this.database.skillSnapshot.count({

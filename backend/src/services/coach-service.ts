@@ -213,7 +213,7 @@ export class CoachService {
             ...result,
             provider: {
               status: 'active',
-              name: `Google Gemini (${this.env.geminiModel || 'gemini-3.5-flash-lite'})`,
+              name: `Google Gemini (${this.env.geminiModel || 'gemini-2.5-flash-lite'})`,
             },
           };
         }
@@ -249,7 +249,7 @@ export class CoachService {
   ): Promise<{ replyText: string; recast: string | null } | null> {
     const apiKey = this.env?.googleApiKey;
     if (!apiKey) return null;
-    const model = this.env?.geminiModel || 'gemini-3.5-flash-lite';
+    const model = this.env?.geminiModel || 'gemini-2.5-flash-lite';
 
     const systemPrompt = `You are a supportive, warm English Fluency Coach in Toungular named Luna.
 Scenario: "${scenario.title}" (${scenario.description}).

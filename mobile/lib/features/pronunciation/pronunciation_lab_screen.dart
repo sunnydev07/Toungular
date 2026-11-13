@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:record/record.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/state/voice_activity_controller.dart';
 import '../../core/theme/toungular_theme.dart';
 import '../../core/voice/voice_repository.dart';
 import '../../shared/models/learning_models.dart';
@@ -50,6 +51,7 @@ class _PronunciationLabScreenState
   @override
   void dispose() {
     if (_recording) unawaited(_recorder.cancel());
+    ref.read(voiceActivityProvider.notifier).setActive(false);
     unawaited(_recorder.dispose());
     unawaited(_audioPlayer.dispose());
     _manualTranscriptController.dispose();
@@ -104,7 +106,11 @@ class _PronunciationLabScreenState
   }
 
   Future<void> _playSample(String text) async {
-    if (_playingAudio) return;
+    if (_playingAudio) {
+      await _audioPlayer.stop();
+      setState(() => _playingAudio = false);
+      return;
+    }
     setState(() => _playingAudio = true);
 
     try {
@@ -141,6 +147,7 @@ class _PronunciationLabScreenState
           ),
           path: path,
         );
+        ref.read(voiceActivityProvider.notifier).setActive(true);
         setState(() {
           _recording = true;
           _recordingPath = path;
@@ -178,13 +185,18 @@ class _PronunciationLabScreenState
         }
       }
 
+      // Never grade the target word back to the learner: an empty transcript
+      // means there is nothing to assess.
       if (transcript.isEmpty) {
-        // Fallback default drill target if transcript empty
-        final targetWord = _targetChoice == 'A'
-            ? _selectedPair!.wordA.word
-            : _selectedPair!.wordB.word;
-        transcript = targetWord;
-        _manualTranscriptController.text = transcript;
+        if (mounted) {
+          setState(() {
+            _evaluating = false;
+            _error = _sttAvailable
+                ? 'No speech was detected. Speak clearly or type what you said to evaluate.'
+                : 'Speech recognition is not configured. Type the word you spoke to evaluate.';
+          });
+        }
+        return;
       }
 
       final repository = ref.read(pronunciationRepositoryProvider);
@@ -212,6 +224,7 @@ class _PronunciationLabScreenState
         _evaluating = false;
       });
     } finally {
+      ref.read(voiceActivityProvider.notifier).setActive(false);
       final path = _recordingPath;
       if (path != null) {
         _recordingPath = null;
@@ -665,7 +678,7 @@ class _PronunciationLabScreenState
       onTap: () {
         setState(() {
           _targetChoice = choiceKey;
-          _manualTranscriptController.text = wordItem.word;
+          _manualTranscriptController.clear();
           _analysisResult = null;
         });
       },

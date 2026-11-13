@@ -22,6 +22,7 @@ function tokenFor(userId: string): string {
 function createHarness(options: { aiDaily?: number } = {}) {
   const calls = { addTurn: 0, schedule: 0, xp: 0 };
   const seen: Array<{ userId: string; limit: number; offset: number }> = [];
+  const removed: Array<{ userId: string; id: string }> = [];
   const rows: Array<{ userId: string; scope: string; key: string; response: string; createdAt: Date }> = [];
 
   const idempotencyDatabase = {
@@ -33,6 +34,20 @@ function createHarness(options: { aiDaily?: number } = {}) {
       create: async ({ data }: { data: { userId: string; scope: string; key: string; response: string } }) => {
         rows.push({ ...data, createdAt: new Date() });
         return data;
+      },
+      update: async ({ where, data }: { where: { userId_scope_key: { userId: string; scope: string; key: string } }; data: { response: string } }) => {
+        const { userId, scope, key } = where.userId_scope_key;
+        const row = rows.find((candidate) => candidate.userId === userId && candidate.scope === scope && candidate.key === key);
+        if (row) row.response = data.response;
+        return row;
+      },
+      deleteMany: async ({ where }: { where: { userId: string; scope: string; key: string; response?: string } }) => {
+        const index = rows.findIndex((row) => row.userId === where.userId
+          && row.scope === where.scope
+          && row.key === where.key
+          && (where.response === undefined || row.response === where.response));
+        if (index >= 0) rows.splice(index, 1);
+        return { count: index >= 0 ? 1 : 0 };
       },
     },
   };
@@ -60,6 +75,9 @@ function createHarness(options: { aiDaily?: number } = {}) {
         seen.push({ userId, limit, offset });
         return [{ id: 'session-1', userId }];
       },
+      remove: async (userId: string, id: string) => {
+        removed.push({ userId, id });
+      },
     },
     vocabulary: { scheduleEncounterWords: async () => { calls.schedule += 1; return 0; } },
     mastery: { awardXp: async () => { calls.xp += 1; return {}; } },
@@ -83,7 +101,7 @@ function createHarness(options: { aiDaily?: number } = {}) {
   app.use('/v1', createV1Router(dependencies as never));
   app.use(jsonErrorHandler);
 
-  return { app, calls, seen };
+  return { app, calls, seen, removed };
 }
 
 test('protected routes reject requests without a bearer token', async () => {
@@ -105,6 +123,17 @@ test('history reads the identity from the access token, not the request', async 
   assert.equal(response.status, 200);
   assert.deepEqual(seen, [{ userId: 'user-42', limit: 30, offset: 0 }]);
   assert.deepEqual(response.body.data, [{ id: 'session-1', userId: 'user-42' }]);
+});
+
+test('discarding a speaking draft soft-deletes it through the API', async () => {
+  const { app, removed } = createHarness();
+
+  const response = await request(app)
+    .delete('/v1/speaking-sessions/session-9')
+    .set('Authorization', `Bearer ${tokenFor('user-7')}`);
+
+  assert.equal(response.status, 204);
+  assert.deepEqual(removed, [{ userId: 'user-7', id: 'session-9' }]);
 });
 
 test('an idempotency key replays the stored coach turn without duplicate side effects', async () => {

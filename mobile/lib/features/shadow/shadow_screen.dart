@@ -33,6 +33,9 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
   List<ShadowPassage> _passages = <ShadowPassage>[];
   ShadowPassage? _currentPassage;
   Timer? _timer;
+  StreamSubscription<Amplitude>? _amplitude;
+  final List<double> _pauses = <double>[];
+  DateTime? _silenceStarted;
   int _seconds = 0;
   bool _loading = true;
   bool _modelPlaying = false;
@@ -54,6 +57,8 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _amplitude?.cancel();
+    _amplitude = null;
     if (_recording) unawaited(_recorder.cancel());
     unawaited(_recorder.dispose());
     unawaited(_modelPlayer.dispose());
@@ -192,8 +197,13 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
       );
       _userAudioPath = path;
       _transcriptController.clear();
+      _pauses.clear();
+      _silenceStarted = null;
       _recording = true;
       ref.read(voiceActivityProvider.notifier).setActive(true);
+      _amplitude = _recorder
+          .onAmplitudeChanged(const Duration(milliseconds: 200))
+          .listen(_trackAmplitude);
 
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted) return;
@@ -215,6 +225,9 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
     try {
       final path = await _recorder.stop();
       if (path != null) _userAudioPath = path;
+      _finalizePause();
+      await _amplitude?.cancel();
+      _amplitude = null;
       _timer?.cancel();
       _recording = false;
       ref.read(voiceActivityProvider.notifier).setActive(false);
@@ -233,6 +246,24 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// Gaps of at least 0.4 s below -40 dBFS are the pauses the rhythm score uses.
+  void _trackAmplitude(Amplitude amplitude) {
+    if (!_recording) return;
+    if (amplitude.current < -40.0) {
+      _silenceStarted ??= DateTime.now();
+      return;
+    }
+    _finalizePause();
+  }
+
+  void _finalizePause() {
+    final started = _silenceStarted;
+    _silenceStarted = null;
+    if (started == null) return;
+    final seconds = DateTime.now().difference(started).inMilliseconds / 1000;
+    if (seconds >= 0.4) _pauses.add(double.parse(seconds.toStringAsFixed(2)));
   }
 
   Future<void> _transcribe() async {
@@ -302,6 +333,7 @@ class _ShadowScreenState extends ConsumerState<ShadowScreen> {
             passageId: passage.id,
             durationSeconds: _seconds,
             transcript: transcript,
+            pauses: _pauses,
           );
 
       // Record exposure session for Level 5
@@ -578,6 +610,13 @@ class _ShadowScorecard extends StatelessWidget {
                 ),
               ],
             ),
+            if (analysis.rhythmScore != null) ...<Widget>[
+              const SizedBox(height: ToungularSpace.s),
+              _MetricTile(
+                label: 'Rhythm',
+                value: '${analysis.rhythmScore}%',
+              ),
+            ],
             const Divider(height: ToungularSpace.xl),
             Text(
               'Pacing Diagnosis',

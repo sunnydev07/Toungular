@@ -105,10 +105,13 @@ model VocabularyItem {
   definition   String
   example      String
   level        String
-  tier         Int              @default(2)
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  schedules    ReviewSchedule[]
+  tier            Int              @default(2)
+  createdByUserId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  schedules       ReviewSchedule[]
+
+  @@index([createdByUserId])
 }
 
 model ReviewSchedule {

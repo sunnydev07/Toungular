@@ -100,7 +100,7 @@ class _CoachScenariosScreenState extends ConsumerState<CoachScenariosScreen> {
             ),
             const SizedBox(height: ToungularSpace.s),
             const Text(
-              'Toungular saves your responses and gives you a structured cue. Live AI replies are not enabled yet.',
+              'Hold a multi-turn conversation with your AI Coach, get gentle recasts, and practice target vocabulary in context.',
             ),
             if (_error != null) ...<Widget>[
               const SizedBox(height: ToungularSpace.s),

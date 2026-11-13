@@ -1,11 +1,38 @@
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toungular/core/network/api_client.dart';
 import 'package:toungular/core/network/session_manager.dart';
 import 'package:toungular/core/storage/session_store.dart';
 import 'package:toungular/core/voice/voice_repository.dart';
 import 'package:toungular/shared/models/learning_models.dart';
+
+class _FakeAdapter implements HttpClientAdapter {
+  _FakeAdapter(this.onFetch);
+
+  final void Function(RequestOptions options) onFetch;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    onFetch(options);
+    return ResponseBody.fromBytes(
+      <int>[1, 2, 3],
+      200,
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>['audio/mpeg'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
 
 class _NoOpSessionStore extends SessionStore {
   @override
@@ -39,6 +66,31 @@ void main() {
     if (await tempDir.exists()) {
       await tempDir.delete(recursive: true);
     }
+  });
+
+  test('synthesizeToFile forwards provider, voiceId, and speed in the body', () async {
+    Map<String, Object?>? sent;
+    final dio = Dio(BaseOptions(baseUrl: 'http://localhost:3000'));
+    dio.httpClientAdapter = _FakeAdapter((options) {
+      sent = (options.data as Map).cast<String, Object?>();
+    });
+    final cached = VoiceRepository(
+      ApiClient(SessionManager(_NoOpSessionStore()), dio: dio),
+      cacheDirectory: tempDir,
+    );
+
+    final path = await cached.synthesizeToFile(
+      'Hello there',
+      provider: 'google',
+      voiceId: 'voice-1',
+      speed: 1.2,
+    );
+
+    expect(File(path).existsSync(), isTrue);
+    expect(sent?['text'], 'Hello there');
+    expect(sent?['provider'], 'google');
+    expect(sent?['voiceId'], 'voice-1');
+    expect(sent?['speed'], 1.2);
   });
 
   test('pruneCache removes oldest files when count exceeds maxCacheFiles', () async {

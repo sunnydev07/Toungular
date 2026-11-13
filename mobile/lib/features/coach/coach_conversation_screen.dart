@@ -12,6 +12,7 @@ import '../../core/state/voice_activity_controller.dart';
 import '../../core/theme/toungular_theme.dart';
 import '../../core/voice/voice_repository.dart';
 import '../../shared/models/learning_models.dart';
+import '../exposure/exposure_repository.dart';
 import 'coach_repository.dart';
 
 class CoachConversationScreen extends ConsumerStatefulWidget {
@@ -227,6 +228,11 @@ class _CoachConversationScreenState
       final summary = await ref
           .read(coachRepositoryProvider)
           .finish(widget.conversationId);
+      // A finished live conversation is the Level 6 comfort-path session.
+      try {
+        await ref.read(exposureRepositoryProvider).complete(6);
+      } catch (_) {}
+
       if (mounted) {
         setState(() => _summary = summary);
         _scrollToBottom();

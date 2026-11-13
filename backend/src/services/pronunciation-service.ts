@@ -240,9 +240,10 @@ export class PronunciationService {
     const targetLower = targetItem.word.toLowerCase();
     const counterpartLower = counterpartItem.word.toLowerCase();
 
-    // Check accuracy and confusion
-    const hasTarget = cleaned.includes(targetLower);
-    const hasCounterpart = cleaned.includes(counterpartLower);
+    // Whole-word matching keeps "alright" from satisfying a "right" drill.
+    const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const hasTarget = new RegExp(`\\b${escapeRegex(targetLower)}\\b`, 'i').test(cleaned);
+    const hasCounterpart = new RegExp(`\\b${escapeRegex(counterpartLower)}\\b`, 'i').test(cleaned);
 
     let isAccurate = false;
     let confusedWithCounterpart = false;

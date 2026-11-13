@@ -158,17 +158,36 @@ export class MasteryService {
     };
   }
 
-  public async useFreezeToken(userId: string): Promise<MasteryProfile> {
+  public async useFreezeToken(userId: string, now: Date = new Date()): Promise<MasteryProfile> {
+    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const dayEnd = new Date(dayStart.getTime() + 86_400_000);
+    const alreadyFrozen = await this.database.skillSnapshot.findFirst({
+      where: { userId, skill: 'streak_freeze', recordedAt: { gte: dayStart, lt: dayEnd } },
+      select: { id: true },
+    });
+    if (alreadyFrozen) {
+      throw new AppError(409, 'STREAK_ALREADY_FROZEN', 'A streak freeze is already active for today.');
+    }
+
     const current = this.calculateProfile(await this.ensureRow(userId));
     if (current.freezeTokens <= 0) {
       throw new AppError(400, 'NO_FREEZE_TOKENS', 'No freeze tokens available to use.');
     }
 
-    const updated = await this.database.masteryXp.update({
-      where: { userId },
-      data: {
-        freezeTokens: { decrement: 1 },
-      },
+    const updated = await this.database.$transaction(async (transaction) => {
+      const row = await transaction.masteryXp.update({
+        where: { userId },
+        data: { freezeTokens: { decrement: 1 } },
+      });
+      await transaction.skillSnapshot.create({
+        data: { userId, skill: 'streak_freeze', value: 1, source: 'freeze-token', recordedAt: now },
+      });
+      await transaction.streakState.upsert({
+        where: { userId },
+        update: { lastActivityOn: now },
+        create: { userId, lastActivityOn: now },
+      });
+      return row;
     });
 
     return this.calculateProfile(updated);
