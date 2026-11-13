@@ -10,7 +10,7 @@ import { AuthService } from '../services/auth-service.js';
 import { CoachService } from '../services/coach-service.js';
 import { ContentService } from '../services/content-service.js';
 import { CurriculumService } from '../services/curriculum-service.js';
-import { DecisionService } from '../services/decision-service.js';
+import { DecisionService, type SrsGradePredictionResult } from '../services/decision-service.js';
 import { ExposureService } from '../services/exposure-service.js';
 import type { IdempotencyService } from '../services/idempotency-service.js';
 import { IeltsService } from '../services/ielts-service.js';
@@ -54,6 +54,7 @@ const historyQuerySchema = z.object({
 const reviewSchema = z.object({
   grade: z.enum(['again', 'hard', 'good', 'easy']),
   mode: z.enum(['definition', 'cloze', 'audio', 'sentence']).optional(),
+  responseTimeMs: z.number().int().min(0).max(120_000).optional(),
 });
 const speakingStartSchema = z.object({
   type: z.string().trim().regex(/^(prompt|ielts|baseline|anonymous|exposure-[1-7])$/).default('prompt'),
@@ -64,6 +65,12 @@ const analyzeSchema = z.object({
   durationSeconds: z.number().int().min(1).max(600),
   transcript: z.string().trim().min(1).max(12_000).optional(),
   pauses: z.array(z.number().min(0).max(120)).max(100).optional(),
+  wordTimings: z.array(z.object({
+    word: z.string(),
+    start: z.number(),
+    end: z.number(),
+    confidence: z.number().optional(),
+  })).optional(),
 });
 const manualWordSchema = z.object({
   word: z.string().trim().min(1).max(80),
@@ -127,6 +134,8 @@ const pronunciationAnalyzeSchema = z.object({
   targetChoice: z.enum(['A', 'B']),
   transcript: z.string().trim().min(1).max(1000),
   durationSeconds: z.number().min(0.5).max(120).optional(),
+  audioBase64: z.string().optional(),
+  audioContentType: z.string().optional(),
 });
 
 type V1Dependencies = {
@@ -278,8 +287,17 @@ export function createV1Router(dependencies: V1Dependencies): Router {
     });
   }));
   router.post('/vocabulary/:itemId/review', authenticate, asyncRoute(async (request, response) => {
-    const { grade, mode } = reviewSchema.parse(request.body);
+    const { grade, mode, responseTimeMs } = reviewSchema.parse(request.body);
     const userId = authenticatedUserId(request);
+    let prediction: SrsGradePredictionResult | undefined;
+    if (responseTimeMs !== undefined && dependencies.decision) {
+      prediction = await dependencies.decision.predictSrsGrade({
+        intervalDays: 0,
+        repetitions: 0,
+        responseTimeMs,
+        isCorrect: grade !== 'again',
+      });
+    }
     const data = await dependencies.vocabulary.recordReview(
       userId,
       paramString(request.params.itemId),
@@ -289,7 +307,7 @@ export function createV1Router(dependencies: V1Dependencies): Router {
       dependencies.voice.status().tts.available,
     );
     await dependencies.mastery.awardXp(userId, 'lexical', 15, 'Spaced repetition recall');
-    response.status(200).json({ data });
+    response.status(200).json({ data, ...(prediction ? { prediction } : {}) });
   }));
 
   router.post('/speaking-sessions', authenticate, asyncRoute(async (request, response) => {
@@ -565,6 +583,7 @@ export function createV1Router(dependencies: V1Dependencies): Router {
     const userId = authenticatedUserId(request);
     const id = paramString(request.params.id);
     const key = idempotencyKey(request);
+    const audioBuffer = input.audioBase64 ? Buffer.from(input.audioBase64, 'base64') : undefined;
     const analyze = () => {
       dependencies.quotas.consume(userId, 'ai');
       return measured(dependencies.quotas, () => dependencies.pronunciation.analyzeAttempt(
@@ -573,6 +592,8 @@ export function createV1Router(dependencies: V1Dependencies): Router {
         input.targetChoice,
         input.transcript,
         input.durationSeconds ?? 3,
+        audioBuffer,
+        input.audioContentType,
       ));
     };
     const outcome = key

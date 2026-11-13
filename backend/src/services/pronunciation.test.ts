@@ -130,3 +130,48 @@ test('pronunciation service detects phoneme substitution confusion and offers ar
   assert.ok(result.phonemeFeedback.includes('Noticeable phoneme substitution'));
   assert.ok(result.phonemeFeedback.includes('Light'));
 });
+
+test('pronunciation service integrates acoustic GOP assessor when provided', async () => {
+  const prisma = createMockPrisma();
+  const mastery = new MasteryService(prisma);
+  const decision = createMockDecision();
+  const mockAssessor = {
+    id: 'mock-azure',
+    assess: async (_audio: Buffer, _contentType: string, _referenceText: string) => ({
+      accuracyScore: 88,
+      fluencyScore: 85,
+      completenessScore: 100,
+      pronScore: 89,
+      words: [
+        {
+          word: 'Right',
+          accuracyScore: 88,
+          phonemes: [
+            { phoneme: 'r', accuracyScore: 92 },
+            { phoneme: 'aɪ', accuracyScore: 86 },
+            { phoneme: 't', accuracyScore: 87 },
+          ],
+        },
+      ],
+    }),
+  };
+  const service = new PronunciationService(prisma, decision, mastery, mockAssessor);
+
+  const result = await service.analyzeAttempt(
+    'user-1',
+    'pair-r-vs-l',
+    'A',
+    'Right',
+    2,
+    Buffer.from('fake-audio-bytes'),
+    'audio/wav',
+  );
+
+  assert.equal(result.pairId, 'pair-r-vs-l');
+  assert.equal(result.accuracyScore, 88);
+  assert.equal(result.isAccurate, true);
+  assert.ok(result.acousticAssessment);
+  assert.equal(result.acousticAssessment?.accuracyScore, 88);
+  assert.equal(result.acousticAssessment?.phonemes?.length, 3);
+  assert.equal(result.acousticAssessment?.phonemes?.[0]?.phoneme, 'r');
+});

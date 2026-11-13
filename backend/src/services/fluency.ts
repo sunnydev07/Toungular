@@ -6,6 +6,18 @@ export type FillerUse = {
   category: FillerCategory;
 };
 
+export type WordTiming = {
+  word: string;
+  start: number;
+  end: number;
+  confidence?: number | undefined;
+};
+
+export type PauseClassification = {
+  midClausePauses: number;
+  boundaryPauses: number;
+};
+
 export type TranscriptAnalysis = {
   wordCount: number;
   uniqueWordCount: number;
@@ -20,6 +32,7 @@ export type TranscriptAnalysis = {
   pauseRatio: number;
   pauseNote: string;
   nextStep: string;
+  pauseClassification?: PauseClassification;
 };
 
 const FILLERS: Array<{ word: string; category: FillerCategory }> = [
@@ -34,7 +47,12 @@ const FILLERS: Array<{ word: string; category: FillerCategory }> = [
 
 const LONG_PAUSE_SECONDS = 2;
 
-export function analyzeTranscript(transcript: string, durationSeconds: number, pauses: number[] = []): TranscriptAnalysis {
+export function analyzeTranscript(
+  transcript: string,
+  durationSeconds: number,
+  pauses: number[] = [],
+  wordTimings: WordTiming[] = [],
+): TranscriptAnalysis {
   const words = transcript.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g) ?? [];
   const normalized = words.map((word) => word.toLowerCase());
   const duration = Math.max(1, durationSeconds);
@@ -54,6 +72,36 @@ export function analyzeTranscript(transcript: string, durationSeconds: number, p
   const vocabularyVariety = words.length === 0 ? 0 : Number((uniqueWordCount / words.length).toFixed(2));
   const pauseRatio = Number(Math.min(1, pauseSeconds / duration).toFixed(2));
 
+  let pauseClassification: PauseClassification | undefined;
+  if (wordTimings.length >= 2) {
+    let boundaryPauses = 0;
+    let midClausePauses = 0;
+    const CLAUSE_BOUNDARIES = new Set([
+      'and', 'but', 'or', 'so', 'because', 'although', 'however', 'moreover',
+      'furthermore', 'therefore', 'while', 'when', 'if', 'that', 'which',
+      'who', 'whose', 'where', 'since', 'as', 'though', 'whereas', 'unless',
+      'despite', 'besides', 'meanwhile', 'yet',
+    ]);
+    for (let i = 0; i < wordTimings.length - 1; i++) {
+      const cur = wordTimings[i]!;
+      const next = wordTimings[i + 1]!;
+      const gap = next.start - cur.end;
+      if (gap >= 0.4) {
+        const hasPunctuation = /[.,!?;:]$/.test(cur.word);
+        const cleanNext = next.word.toLowerCase().replace(/[^a-z]/g, '');
+        const isClauseWord = CLAUSE_BOUNDARIES.has(cleanNext);
+        if (hasPunctuation || isClauseWord) {
+          boundaryPauses++;
+        } else {
+          midClausePauses++;
+        }
+      }
+    }
+    if (boundaryPauses > 0 || midClausePauses > 0) {
+      pauseClassification = { boundaryPauses, midClausePauses };
+    }
+  }
+
   return {
     wordCount: words.length,
     uniqueWordCount,
@@ -66,8 +114,9 @@ export function analyzeTranscript(transcript: string, durationSeconds: number, p
     longPauseCount,
     pauseSeconds,
     pauseRatio,
-    pauseNote: pauseNote(validPauses.length, longPauseCount),
+    pauseNote: pauseNote(validPauses.length, longPauseCount, pauseClassification),
     nextStep: nextStep(fillerCount, longPauseCount, vocabularyVariety),
+    ...(pauseClassification ? { pauseClassification } : {}),
   };
 }
 
@@ -95,7 +144,17 @@ function countPhrase(text: string, phrase: string): number {
   return (text.match(new RegExp(`\\b${escaped}\\b`, 'gi')) ?? []).length;
 }
 
-function pauseNote(count: number, longCount: number): string {
+function pauseNote(count: number, longCount: number, classification?: PauseClassification): string {
+  if (count === 0 && !classification) return 'No pauses of half a second or more were detected in this recording.';
+  if (classification && (classification.boundaryPauses > 0 || classification.midClausePauses > 0)) {
+    const { boundaryPauses, midClausePauses } = classification;
+    const clauseBreakdown = `${boundaryPauses} at natural phrasing boundaries, ${midClausePauses} mid-clause`;
+    const totalPauses = Math.max(count, boundaryPauses + midClausePauses);
+    if (longCount === 0) {
+      return `${totalPauses} short pause${totalPauses === 1 ? '' : 's'} (${clauseBreakdown}) — a natural thinking rhythm.`;
+    }
+    return `${longCount} long pause${longCount === 1 ? '' : 's'} over ${LONG_PAUSE_SECONDS} seconds (${clauseBreakdown}).`;
+  }
   if (count === 0) return 'No pauses of half a second or more were detected in this recording.';
   if (longCount === 0) return `${count} short pause${count === 1 ? '' : 's'} — a natural thinking rhythm.`;
   return `${longCount} long pause${longCount === 1 ? '' : 's'} over ${LONG_PAUSE_SECONDS} seconds. Word-boundary checks need speech-recognition timestamps, so this counts the pause, not its grammar position.`;

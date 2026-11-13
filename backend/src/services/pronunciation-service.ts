@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 
 import { AppError } from '../lib/http.js';
+import type { PronunciationAssessor } from '../providers/voice.js';
 import type { DecisionService } from './decision-service.js';
 import type { MasteryService } from './mastery-service.js';
 
@@ -41,6 +42,16 @@ export type PhonemeAnalysisResult = {
   phonemeFeedback: string;
   articulatoryTip: string;
   awardedXp: number;
+  acousticAssessment?: {
+    accuracyScore: number;
+    fluencyScore?: number | undefined;
+    completenessScore?: number | undefined;
+    pronScore: number;
+    phonemes?: Array<{
+      phoneme: string;
+      accuracyScore: number;
+    }> | undefined;
+  } | undefined;
 };
 
 const MINIMAL_PAIRS: MinimalPairSet[] = [
@@ -207,6 +218,7 @@ export class PronunciationService {
     private readonly database: PrismaClient,
     private readonly decision: DecisionService,
     private readonly mastery: MasteryService,
+    private readonly assessor?: PronunciationAssessor,
   ) {}
 
   public getPairs(category?: string, level?: string): MinimalPairSet[] {
@@ -231,6 +243,8 @@ export class PronunciationService {
     targetChoice: 'A' | 'B',
     transcript: string,
     durationSeconds: number,
+    audio?: Buffer,
+    contentType?: string,
   ): Promise<PhonemeAnalysisResult> {
     const pair = this.getPair(pairId);
     const targetItem = targetChoice === 'A' ? pair.wordA : pair.wordB;
@@ -249,19 +263,43 @@ export class PronunciationService {
     let confusedWithCounterpart = false;
     let accuracyScore = 50;
 
-    if (hasTarget && !hasCounterpart) {
-      isAccurate = true;
-      accuracyScore = 95;
-    } else if (hasCounterpart && !hasTarget) {
-      isAccurate = false;
-      confusedWithCounterpart = true;
-      accuracyScore = 35;
-    } else if (hasTarget && hasCounterpart) {
-      isAccurate = true;
-      accuracyScore = 75;
-    } else {
-      isAccurate = false;
-      accuracyScore = 40;
+    let acousticAssessment: PhonemeAnalysisResult['acousticAssessment'] | undefined;
+    if (this.assessor && audio) {
+      try {
+        const assessed = await this.assessor.assess(audio, contentType ?? 'audio/wav', targetItem.word);
+        accuracyScore = Math.round(assessed.accuracyScore);
+        isAccurate = accuracyScore >= 60;
+        confusedWithCounterpart = !isAccurate && hasCounterpart;
+        acousticAssessment = {
+          accuracyScore: assessed.accuracyScore,
+          fluencyScore: assessed.fluencyScore,
+          completenessScore: assessed.completenessScore,
+          pronScore: assessed.pronScore,
+          phonemes: assessed.words?.[0]?.phonemes?.map((p) => ({
+            phoneme: p.phoneme,
+            accuracyScore: p.accuracyScore,
+          })),
+        };
+      } catch {
+        // Fallback to transcript heuristic matching below
+      }
+    }
+
+    if (!acousticAssessment) {
+      if (hasTarget && !hasCounterpart) {
+        isAccurate = true;
+        accuracyScore = 95;
+      } else if (hasCounterpart && !hasTarget) {
+        isAccurate = false;
+        confusedWithCounterpart = true;
+        accuracyScore = 35;
+      } else if (hasTarget && hasCounterpart) {
+        isAccurate = true;
+        accuracyScore = 75;
+      } else {
+        isAccurate = false;
+        accuracyScore = 40;
+      }
     }
 
     // Award XP
@@ -295,6 +333,7 @@ export class PronunciationService {
       phonemeFeedback,
       articulatoryTip: pair.articulatoryGuide.tonguePlacement,
       awardedXp: xpPoints,
+      ...(acousticAssessment ? { acousticAssessment } : {}),
     };
   }
 }

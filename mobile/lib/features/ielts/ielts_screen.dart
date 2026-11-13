@@ -21,6 +21,7 @@ class _IeltsScreenState extends ConsumerState<IeltsScreen> {
   IeltsMock? _activeMock;
   IeltsAttemptReference? _attempt;
   String? _summary;
+  IeltsBandRubric? _completedRubric;
   String? _error;
   int _sectionIndex = 0;
   int? _preparationRemaining;
@@ -77,6 +78,7 @@ class _IeltsScreenState extends ConsumerState<IeltsScreen> {
           _preparationStarted = false;
           _preparationRemaining = null;
           _summary = null;
+          _completedRubric = null;
         });
       }
     } on ApiException catch (error) {
@@ -107,6 +109,7 @@ class _IeltsScreenState extends ConsumerState<IeltsScreen> {
       _preparationStarted = false;
       _preparationRemaining = null;
       _summary = null;
+      _completedRubric = null;
       _error = null;
     });
     if (nextIndex < 0) _finishAttempt();
@@ -167,12 +170,13 @@ class _IeltsScreenState extends ConsumerState<IeltsScreen> {
       _error = null;
     });
     try {
-      final summary = await ref
+      final record = await ref
           .read(ieltsRepositoryProvider)
           .finishAttempt(attempt.id);
       if (mounted) {
         setState(() {
-          _summary = summary;
+          _summary = record.feedback;
+          _completedRubric = record.rubric;
           _listData = _loadListData();
         });
       }
@@ -294,41 +298,43 @@ class _IeltsScreenState extends ConsumerState<IeltsScreen> {
     final mock = _activeMock!;
     final section = mock.sections[_sectionIndex];
     if (_summary != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(ToungularSpace.l),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              const Icon(
-                Icons.check_circle_outline,
-                color: ToungularColor.leaf,
-                size: 54,
-              ),
-              const SizedBox(height: ToungularSpace.m),
-              Text(
-                'Practice complete',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: ToungularSpace.s),
-              Text(_summary!, textAlign: TextAlign.center),
-              const SizedBox(height: ToungularSpace.s),
-              const Text(
-                'This is not an official IELTS result.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: ToungularSpace.l),
-              FilledButton(
-                onPressed: () => setState(() {
-                  _activeMock = null;
-                  _attempt = null;
-                  _summary = null;
-                }),
-                child: const Text('Return to practice sets'),
-              ),
-            ],
+      return ListView(
+        padding: const EdgeInsets.all(ToungularSpace.l),
+        children: <Widget>[
+          const Icon(
+            Icons.check_circle_outline,
+            color: ToungularColor.leaf,
+            size: 54,
           ),
-        ),
+          const SizedBox(height: ToungularSpace.m),
+          Text(
+            'Practice complete',
+            style: Theme.of(context).textTheme.headlineSmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: ToungularSpace.s),
+          Text(_summary!, textAlign: TextAlign.center),
+          const SizedBox(height: ToungularSpace.m),
+          if (_completedRubric != null) ...<Widget>[
+            _IeltsBandScorecard(rubric: _completedRubric!),
+            const SizedBox(height: ToungularSpace.m),
+          ] else ...<Widget>[
+            const Text(
+              'This is not an official IELTS result.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: ToungularSpace.m),
+          ],
+          FilledButton(
+            onPressed: () => setState(() {
+              _activeMock = null;
+              _attempt = null;
+              _summary = null;
+              _completedRubric = null;
+            }),
+            child: const Text('Return to practice sets'),
+          ),
+        ],
       );
     }
     final prepDone = _preparationStarted && (_preparationRemaining ?? 0) == 0;
@@ -399,7 +405,7 @@ class _IeltsScreenState extends ConsumerState<IeltsScreen> {
   }
 }
 
-class _AttemptCard extends StatelessWidget {
+class _AttemptCard extends StatefulWidget {
   const _AttemptCard({
     required this.attempt,
     required this.mock,
@@ -413,7 +419,16 @@ class _AttemptCard extends StatelessWidget {
   final ValueChanged<IeltsMock> onResume;
 
   @override
+  State<_AttemptCard> createState() => _AttemptCardState();
+}
+
+class _AttemptCardState extends State<_AttemptCard> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final attempt = widget.attempt;
+    final mock = widget.mock;
     final date = attempt.startedAt?.toLocal();
     final dateLabel = date == null
         ? 'Date unavailable'
@@ -424,9 +439,31 @@ class _AttemptCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
-              mock?.title ?? 'Speaking practice',
-              style: Theme.of(context).textTheme.titleMedium,
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    mock?.title ?? 'Speaking practice',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                if (attempt.rubric != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: ToungularColor.lime,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Band ${attempt.rubric!.overallBandEstimate.toStringAsFixed(1)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: ToungularColor.ink,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: ToungularSpace.xs),
             Text(
@@ -436,10 +473,22 @@ class _AttemptCard extends StatelessWidget {
               const SizedBox(height: ToungularSpace.xs),
               Text(attempt.feedback!),
             ],
+            if (attempt.rubric != null) ...<Widget>[
+              const SizedBox(height: ToungularSpace.s),
+              TextButton.icon(
+                onPressed: () => setState(() => _expanded = !_expanded),
+                icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+                label: Text(_expanded ? 'Hide band scorecard' : 'View band scorecard'),
+              ),
+              if (_expanded) ...<Widget>[
+                const SizedBox(height: ToungularSpace.s),
+                _IeltsBandScorecard(rubric: attempt.rubric!),
+              ],
+            ],
             if (attempt.isInProgress && mock != null) ...<Widget>[
               const SizedBox(height: ToungularSpace.s),
               OutlinedButton.icon(
-                onPressed: busy ? null : () => onResume(mock!),
+                onPressed: widget.busy ? null : () => widget.onResume(mock),
                 icon: const Icon(Icons.play_arrow),
                 label: const Text('Resume practice'),
               ),
@@ -447,6 +496,180 @@ class _AttemptCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _IeltsBandScorecard extends StatelessWidget {
+  const _IeltsBandScorecard({required this.rubric});
+
+  final IeltsBandRubric rubric;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.all(ToungularSpace.m),
+      decoration: BoxDecoration(
+        color: ToungularColor.ink,
+        borderRadius: BorderRadius.circular(ToungularRadius.card),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Text(
+                'Estimated Band Score',
+                style: textTheme.titleMedium?.copyWith(color: Colors.white),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: ToungularColor.lime,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  'Band ${rubric.overallBandEstimate.toStringAsFixed(1)}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: ToungularColor.ink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: ToungularSpace.xs),
+          Text(
+            rubric.disclaimer,
+            style: textTheme.bodySmall?.copyWith(
+              color: Colors.white70,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: ToungularSpace.m),
+          const Divider(color: Colors.white24),
+          const SizedBox(height: ToungularSpace.s),
+          _criterionRow(context, rubric.fluencyAndCoherence),
+          const SizedBox(height: ToungularSpace.s),
+          _criterionRow(context, rubric.lexicalResource),
+          const SizedBox(height: ToungularSpace.s),
+          _criterionRow(context, rubric.grammaticalRange),
+          const SizedBox(height: ToungularSpace.s),
+          _criterionRow(context, rubric.pronunciation),
+          if (rubric.upgradedPhrases.isNotEmpty) ...<Widget>[
+            const SizedBox(height: ToungularSpace.m),
+            const Divider(color: Colors.white24),
+            const SizedBox(height: ToungularSpace.s),
+            Text(
+              'Phrase Upgrades',
+              style: textTheme.titleSmall?.copyWith(
+                color: ToungularColor.lime,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: ToungularSpace.xs),
+            for (final phrase in rubric.upgradedPhrases) ...<Widget>[
+              Container(
+                margin: const EdgeInsets.only(top: ToungularSpace.xs),
+                padding: const EdgeInsets.all(ToungularSpace.s),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(20),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            '“${phrase.original}”',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              decoration: TextDecoration.lineThrough,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        const Icon(
+                          Icons.arrow_forward,
+                          size: 14,
+                          color: ToungularColor.lime,
+                        ),
+                        const SizedBox(width: ToungularSpace.xs),
+                        Expanded(
+                          child: Text(
+                            '“${phrase.upgraded}”',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      phrase.reason,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _criterionRow(BuildContext context, IeltsCriterionScore criterion) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                criterion.label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white12,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                criterion.score.toStringAsFixed(1),
+                style: const TextStyle(
+                  color: ToungularColor.lime,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          criterion.notes,
+          style: const TextStyle(color: Colors.white70, fontSize: 11),
+        ),
+      ],
     );
   }
 }

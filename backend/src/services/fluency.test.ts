@@ -22,3 +22,25 @@ test('pace trend compares this session with the previous point', () => {
   assert.equal(trend.change, 8);
   assert.match(trend.message, /8 words per minute faster/);
 });
+
+test('transcript analysis classifies mid-clause vs boundary pauses with wordTimings', () => {
+  const analysis = analyzeTranscript(
+    'I like coffee, because it is good.',
+    10,
+    [0.8, 0.9],
+    [
+      { word: 'I', start: 0.0, end: 0.2 },
+      { word: 'like', start: 0.8, end: 1.1 }, // 0.6s gap, mid-clause
+      { word: 'coffee,', start: 1.2, end: 1.6 },
+      { word: 'because', start: 2.3, end: 2.7 }, // 0.7s gap after comma, boundary
+      { word: 'it', start: 2.8, end: 2.9 },
+      { word: 'is', start: 3.0, end: 3.1 },
+      { word: 'good.', start: 3.2, end: 3.5 },
+    ],
+  );
+  assert.ok(analysis.pauseClassification);
+  assert.equal(analysis.pauseClassification?.boundaryPauses, 1);
+  assert.equal(analysis.pauseClassification?.midClausePauses, 1);
+  assert.match(analysis.pauseNote, /natural phrasing boundaries/);
+  assert.match(analysis.pauseNote, /mid-clause/);
+});

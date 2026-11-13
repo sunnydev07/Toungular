@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/toungular_theme.dart';
 import '../../shared/models/learning_models.dart';
@@ -19,6 +20,8 @@ class SpeakingFeedbackView extends StatelessWidget {
     this.onReturnToIelts,
     this.onBackToComfort,
     required this.onViewHistory,
+    this.onOpenCefrContent,
+    this.onStepDownToWhisper,
   });
 
   final SpeakingFeedback feedback;
@@ -30,14 +33,36 @@ class SpeakingFeedbackView extends StatelessWidget {
   final VoidCallback? onReturnToIelts;
   final VoidCallback? onBackToComfort;
   final VoidCallback onViewHistory;
+  final ValueChanged<String>? onOpenCefrContent;
+  final VoidCallback? onStepDownToWhisper;
+
+  void _handleStepDown(BuildContext context) {
+    if (onStepDownToWhisper != null) {
+      onStepDownToWhisper!();
+    } else if (onBackToComfort != null) {
+      onBackToComfort!();
+    } else {
+      context.push('/exposure');
+    }
+  }
+
+  void _handleOpenCefr(BuildContext context, String level) {
+    if (onOpenCefrContent != null) {
+      onOpenCefrContent!(level);
+    } else {
+      context.push('/content?level=$level');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final topFiller = feedback.fillers.isEmpty ? null : feedback.fillers.first;
     final delta = feedback.wpmChange;
-    final affectiveLine = affective == null
+    final effectiveAffective = affective ?? feedback.affective;
+    final cefr = feedback.cefrCalibration;
+    final affectiveLine = effectiveAffective == null
         ? null
-        : affective!.anxietyState == 'calm'
+        : effectiveAffective.anxietyState == 'calm'
         ? 'You sounded calm and steady.'
         : 'You sounded a little tense — keep it slow and steady.';
 
@@ -162,12 +187,129 @@ class SpeakingFeedbackView extends StatelessWidget {
             ],
           ),
         ),
+        if (effectiveAffective != null && effectiveAffective.shouldScaffold) ...<Widget>[
+          const SizedBox(height: ToungularSpace.m),
+          Card(
+            margin: EdgeInsets.zero,
+            color: Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.3),
+            child: Padding(
+              padding: const EdgeInsets.all(ToungularSpace.m),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      const Icon(Icons.psychology_outlined, size: 20),
+                      const SizedBox(width: ToungularSpace.xs),
+                      Text(
+                        'Affective Support',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const Spacer(),
+                      Chip(
+                        label: Text(
+                          effectiveAffective.anxietyState.replaceAll('_', ' '),
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: ToungularSpace.xs),
+                  if (effectiveAffective.intervention == 'step_down_to_whisper') ...<Widget>[
+                    const Text(
+                      'Speaking pressure seems elevated right now. Step down to low-stress whisper exposure to build comfort:',
+                    ),
+                    const SizedBox(height: ToungularSpace.s),
+                    FilledButton.tonalIcon(
+                      onPressed: () => _handleStepDown(context),
+                      icon: const Icon(Icons.spa_outlined),
+                      label: const Text('Try Whisper Comfort Path'),
+                    ),
+                  ] else if (effectiveAffective.intervention == 'provide_sentence_starter') ...<Widget>[
+                    const Text(
+                      'Starter cue: "When I think about this, one clear reason is..."',
+                    ),
+                    const SizedBox(height: ToungularSpace.s),
+                    OutlinedButton.icon(
+                      onPressed: onRetryWithTip,
+                      icon: const Icon(Icons.lightbulb_outline),
+                      label: const Text('Retry with sentence starter'),
+                    ),
+                  ] else ...<Widget>[
+                    Text(
+                      'Great effort pushing through hesitation — building conversational momentum takes practice!',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+        if (cefr != null) ...<Widget>[
+          const SizedBox(height: ToungularSpace.m),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(ToungularSpace.m),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      const Icon(Icons.auto_graph_outlined, size: 20),
+                      const SizedBox(width: ToungularSpace.xs),
+                      Text(
+                        'CEFR Calibration',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const Spacer(),
+                      Chip(
+                        backgroundColor: ToungularColor.lime,
+                        label: Text(
+                          cefr.calibratedCefr,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: ToungularColor.ink,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: ToungularSpace.s),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          'Syntactic complexity: ${(cefr.syntacticComplexity * 100).toInt()}%',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          'Lexical range: ${(cefr.lexicalRange * 100).toInt()}%',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: ToungularSpace.s),
+                  FilledButton.tonalIcon(
+                    onPressed: () => _handleOpenCefr(context, cefr.calibratedCefr),
+                    icon: const Icon(Icons.menu_book_outlined),
+                    label: Text('Explore ${cefr.calibratedCefr} Content'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
         if (affectiveLine != null) ...<Widget>[
           const SizedBox(height: ToungularSpace.m),
           Row(
             children: <Widget>[
               Icon(
-                affective!.anxietyState == 'calm'
+                effectiveAffective!.anxietyState == 'calm'
                     ? Icons.spa_outlined
                     : Icons.self_improvement_outlined,
                 size: 18,

@@ -106,11 +106,11 @@ export class VoiceService {
 
   public async transcribe(audio: Buffer, contentType: string, providerName?: string) {
     const provider = this.pick(this.sttProviders, providerName, 'speech-to-text');
-    const { text } = await provider.transcribe(audio, contentType);
-    if (!text) {
+    const result = await provider.transcribe(audio, contentType);
+    if (!result.text) {
       throw new AppError(422, 'TRANSCRIPTION_EMPTY', 'No speech was recognized in this recording. Try again in a quieter place.');
     }
-    return { text, provider: provider.id };
+    return { text: result.text, words: result.words, provider: provider.id };
   }
 
   private config(request: VoiceRequest): VoiceConfig {

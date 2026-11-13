@@ -14,6 +14,13 @@ export type AudioResult = {
   contentType: string;
 };
 
+export type WordTiming = {
+  word: string;
+  start: number;
+  end: number;
+  confidence?: number | undefined;
+};
+
 export interface TtsProvider {
   readonly id: string;
   synthesize(text: string, config: VoiceConfig): Promise<AudioResult>;
@@ -21,7 +28,34 @@ export interface TtsProvider {
 
 export interface SttProvider {
   readonly id: string;
-  transcribe(audio: Buffer, contentType: string): Promise<{ text: string }>;
+  transcribe(audio: Buffer, contentType: string): Promise<{ text: string; words?: WordTiming[] | undefined }>;
+}
+
+export type PhonemeAssessment = {
+  phoneme: string;
+  accuracyScore: number;
+  offset?: number | undefined;
+  duration?: number | undefined;
+};
+
+export type WordAssessment = {
+  word: string;
+  accuracyScore: number;
+  errorType?: string | undefined;
+  phonemes?: PhonemeAssessment[] | undefined;
+};
+
+export type PronunciationAssessmentResult = {
+  accuracyScore: number;
+  fluencyScore?: number | undefined;
+  completenessScore?: number | undefined;
+  pronScore: number;
+  words?: WordAssessment[] | undefined;
+};
+
+export interface PronunciationAssessor {
+  readonly id: string;
+  assess(audio: Buffer, contentType: string, referenceText: string): Promise<PronunciationAssessmentResult>;
 }
 
 export class GoogleCloudTts implements TtsProvider {
@@ -134,7 +168,7 @@ export class DeepgramStt implements SttProvider {
 
   public constructor(private readonly apiKey: string) {}
 
-  public async transcribe(audio: Buffer, contentType: string): Promise<{ text: string }> {
+  public async transcribe(audio: Buffer, contentType: string): Promise<{ text: string; words?: WordTiming[] }> {
     const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&language=en', {
       method: 'POST',
       headers: {
@@ -146,14 +180,110 @@ export class DeepgramStt implements SttProvider {
     });
     await ensureOk(response, 'Deepgram');
     const payload = await response.json() as {
-      results?: { channels?: Array<{ alternatives?: Array<{ transcript?: string }> }> };
+      results?: {
+        channels?: Array<{
+          alternatives?: Array<{
+            transcript?: string;
+            words?: Array<{ word: string; start: number; end: number; confidence?: number }>;
+          }>;
+        }>;
+      };
     };
-    const text = payload.results?.channels?.[0]?.alternatives?.[0]?.transcript?.trim() ?? '';
-    return { text };
+    const alt = payload.results?.channels?.[0]?.alternatives?.[0];
+    const text = alt?.transcript?.trim() ?? '';
+    const words = alt?.words?.map((w) => ({
+      word: w.word,
+      start: w.start,
+      end: w.end,
+      confidence: w.confidence,
+    }));
+    return { text, ...(words && words.length > 0 ? { words } : {}) };
   }
 }
 
-export function createVoiceProviders(env: AppEnv): { tts: TtsProvider[]; stt: SttProvider[] } {
+export class AzurePronunciationAssessor implements PronunciationAssessor {
+  public readonly id = 'azure';
+
+  public constructor(
+    private readonly apiKey: string,
+    private readonly region: string = 'centralindia',
+  ) {}
+
+  public async assess(audio: Buffer, contentType: string, referenceText: string): Promise<PronunciationAssessmentResult> {
+    const assessmentParams = {
+      ReferenceText: referenceText,
+      GradingSystem: 'HundredMark',
+      Granularity: 'Phoneme',
+      Dimension: 'Comprehensive',
+      EnableMiscue: true,
+    };
+    const headerValue = Buffer.from(JSON.stringify(assessmentParams)).toString('base64');
+    const audioContentType = contentType.includes('wav')
+      ? contentType
+      : 'audio/wav; codecs=audio/pcm; samplerate=16000';
+
+    const url = `https://${encodeURIComponent(this.region)}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Ocp-Apim-Subscription-Key': this.apiKey,
+        'Content-Type': audioContentType,
+        Accept: 'application/json',
+        'Pronunciation-Assessment': headerValue,
+      },
+      body: new Uint8Array(audio),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+    });
+    await ensureOk(response, 'Azure Speech Pronunciation Assessment');
+    const payload = (await response.json()) as {
+      RecognitionStatus?: string;
+      NBest?: Array<{
+        AccuracyScore?: number;
+        FluencyScore?: number;
+        CompletenessScore?: number;
+        PronScore?: number;
+        Words?: Array<{
+          Word?: string;
+          AccuracyScore?: number;
+          ErrorType?: string;
+          Phonemes?: Array<{
+            Phoneme?: string;
+            AccuracyScore?: number;
+            Offset?: number;
+            Duration?: number;
+          }>;
+        }>;
+      }>;
+    };
+    const top = payload.NBest?.[0];
+    if (!top) {
+      throw providerError('Azure Speech Pronunciation Assessment');
+    }
+    return {
+      accuracyScore: top.AccuracyScore ?? 0,
+      fluencyScore: top.FluencyScore,
+      completenessScore: top.CompletenessScore,
+      pronScore: top.PronScore ?? top.AccuracyScore ?? 0,
+      words: top.Words?.map((w) => ({
+        word: w.Word ?? '',
+        accuracyScore: w.AccuracyScore ?? 0,
+        errorType: w.ErrorType,
+        phonemes: w.Phonemes?.map((p) => ({
+          phoneme: p.Phoneme ?? '',
+          accuracyScore: p.AccuracyScore ?? 0,
+          offset: p.Offset,
+          duration: p.Duration,
+        })),
+      })),
+    };
+  }
+}
+
+export function createVoiceProviders(env: AppEnv): {
+  tts: TtsProvider[];
+  stt: SttProvider[];
+  assessor?: PronunciationAssessor | undefined;
+} {
   const tts: TtsProvider[] = [];
   if (env.googleTtsApiKey) tts.push(new GoogleCloudTts(env.googleTtsApiKey));
   if (env.elevenLabsApiKey && env.elevenLabsVoiceId) {
@@ -163,7 +293,11 @@ export function createVoiceProviders(env: AppEnv): { tts: TtsProvider[]; stt: St
   const stt: SttProvider[] = [];
   if (env.openAiApiKey) stt.push(new WhisperStt(env.openAiApiKey));
   if (env.deepgramApiKey) stt.push(new DeepgramStt(env.deepgramApiKey));
-  return { tts, stt };
+  let assessor: PronunciationAssessor | undefined;
+  if (env.azureSpeechKey) {
+    assessor = new AzurePronunciationAssessor(env.azureSpeechKey, env.azureSpeechRegion);
+  }
+  return { tts, stt, assessor };
 }
 
 function speed(value: number | undefined): number {

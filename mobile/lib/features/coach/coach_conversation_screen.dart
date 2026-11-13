@@ -36,6 +36,12 @@ class _CoachConversationScreenState
   bool _busy = false;
   bool _recording = false;
   bool _transcribing = false;
+  bool _sttAvailable = false;
+  bool _handsFreeCall = false;
+  StreamSubscription<Amplitude>? _amplitudeSubscription;
+  bool _speechDetected = false;
+  int _speechDurationMs = 0;
+  int _silenceDurationMs = 0;
   String? _playingTurnId;
   Duration _recordDuration = Duration.zero;
   Timer? _timer;
@@ -43,6 +49,7 @@ class _CoachConversationScreenState
 
   String? _cue;
   String? _lastRecast;
+  CoachTurnGate? _lastTurnGate;
   String? _summary;
   String? _error;
 
@@ -52,11 +59,22 @@ class _CoachConversationScreenState
     _conversation = ref
         .read(coachRepositoryProvider)
         .load(widget.conversationId);
+    _checkVoiceStatus();
+  }
+
+  Future<void> _checkVoiceStatus() async {
+    try {
+      final status = await ref.read(voiceRepositoryProvider).status();
+      if (mounted) {
+        setState(() => _sttAvailable = status.sttAvailable);
+      }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _amplitudeSubscription?.cancel();
     if (_recording) unawaited(_recorder.cancel());
     _player.dispose();
     _recorder.dispose();
@@ -119,6 +137,8 @@ class _CoachConversationScreenState
 
   Future<void> _toggleRecording() async {
     if (_recording) {
+      await _amplitudeSubscription?.cancel();
+      _amplitudeSubscription = null;
       final path = await _recorder.stop();
       _recordingPath = null;
       _timer?.cancel();
@@ -181,6 +201,48 @@ class _CoachConversationScreenState
           setState(() => _recordDuration += const Duration(seconds: 1));
         }
       });
+
+      if (_handsFreeCall) {
+        _startVadListening();
+      }
+    }
+  }
+
+  void _startVadListening() {
+    _amplitudeSubscription?.cancel();
+    _speechDetected = false;
+    _speechDurationMs = 0;
+    _silenceDurationMs = 0;
+
+    _amplitudeSubscription = _recorder
+        .onAmplitudeChanged(const Duration(milliseconds: 200))
+        .listen((amp) {
+      if (!_recording || !_handsFreeCall || !mounted) return;
+      final dbfs = amp.current;
+      if (dbfs > -35.0) {
+        _speechDurationMs += 200;
+        _silenceDurationMs = 0;
+        if (_speechDurationMs >= 400) {
+          _speechDetected = true;
+        }
+      } else if (dbfs < -40.0) {
+        if (_speechDetected) {
+          _silenceDurationMs += 200;
+          if (_silenceDurationMs >= 1500) {
+            _amplitudeSubscription?.cancel();
+            _amplitudeSubscription = null;
+            unawaited(_autoStopAndSend());
+          }
+        }
+      }
+    });
+  }
+
+  Future<void> _autoStopAndSend() async {
+    if (!_recording) return;
+    await _toggleRecording();
+    if (mounted && _textController.text.trim().isNotEmpty) {
+      await _send();
     }
   }
 
@@ -205,9 +267,20 @@ class _CoachConversationScreenState
         if (receipt.recast != null) {
           _lastRecast = receipt.recast;
         }
+        if (receipt.turnGate != null) {
+          _lastTurnGate = receipt.turnGate;
+        }
         _textController.clear();
       });
       _scrollToBottom();
+
+      if (_handsFreeCall && receipt.replyTurn != null && mounted) {
+        setState(() => _busy = false);
+        await _toggleTts(receipt.replyTurn!);
+        if (mounted && _handsFreeCall && !_recording && !_busy && _summary == null) {
+          await _toggleRecording();
+        }
+      }
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
@@ -215,7 +288,7 @@ class _CoachConversationScreenState
         setState(() => _error = 'Your response was not saved. Try again.');
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted && _busy) setState(() => _busy = false);
     }
   }
 
@@ -282,6 +355,31 @@ class _CoachConversationScreenState
     appBar: AppBar(
       title: const Text('Practice conversation'),
       actions: <Widget>[
+        if (_sttAvailable)
+          IconButton(
+            tooltip: _handsFreeCall
+                ? 'Hands-free call active (tap to turn off)'
+                : 'Hands-free voice call mode',
+            icon: Icon(
+              _handsFreeCall ? Icons.headset_mic : Icons.spatial_audio_off,
+              color: _handsFreeCall ? ToungularColor.leaf : null,
+            ),
+            onPressed: _busy
+                ? null
+                : () async {
+                    setState(() => _handsFreeCall = !_handsFreeCall);
+                    if (_handsFreeCall) {
+                      if (!_recording && !_busy) {
+                        await _toggleRecording();
+                      } else if (_recording) {
+                        _startVadListening();
+                      }
+                    } else {
+                      await _amplitudeSubscription?.cancel();
+                      _amplitudeSubscription = null;
+                    }
+                  },
+          ),
         IconButton(
           tooltip: 'Delete conversation',
           onPressed: _busy || _recording ? null : _delete,
@@ -366,12 +464,39 @@ class _CoachConversationScreenState
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
-                                  const Text(
-                                    'Natural phrasing tip',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF2E7D32),
-                                    ),
+                                  Row(
+                                    children: <Widget>[
+                                      const Text(
+                                        'Natural phrasing tip',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF2E7D32),
+                                        ),
+                                      ),
+                                      if (_lastTurnGate?.needsRecast == true &&
+                                          _lastTurnGate?.errorCategory != null &&
+                                          _lastTurnGate!.errorCategory.isNotEmpty) ...<Widget>[
+                                        const SizedBox(width: ToungularSpace.s),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFC8E6C9),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            _lastTurnGate!.errorCategory,
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF1B5E20),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                   const SizedBox(height: ToungularSpace.xs),
                                   Text(
@@ -492,7 +617,9 @@ class _CoachConversationScreenState
                               ),
                               const SizedBox(width: ToungularSpace.s),
                               Text(
-                                'Listening… ${_recordDuration.inSeconds}s (Tap mic to stop)',
+                                _handsFreeCall
+                                    ? 'Hands-free call… ${_recordDuration.inSeconds}s (pause speaking to send)'
+                                    : 'Listening… ${_recordDuration.inSeconds}s (Tap mic to stop)',
                                 style: const TextStyle(
                                   color: Colors.red,
                                   fontWeight: FontWeight.w600,

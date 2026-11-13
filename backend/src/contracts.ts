@@ -71,6 +71,9 @@ export type VocabularyReview = {
   intervalDays: number;
   repetitions: number;
   easeFactor: number;
+  stability?: number;
+  difficulty?: number;
+  retrievability?: number;
   lapses: number;
   lastGrade: ReviewGrade | null;
   recallMode: RecallMode;

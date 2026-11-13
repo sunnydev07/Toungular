@@ -10,6 +10,7 @@ import { logger, requestLogger } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
 import { QuotaService } from './lib/quotas.js';
 import { JevClient } from './providers/jev-client.js';
+import { createVoiceProviders } from './providers/voice.js';
 import { createV1Router } from './routes/v1.js';
 import { AuthService } from './services/auth-service.js';
 import { CoachService } from './services/coach-service.js';
@@ -82,7 +83,8 @@ export function createApp(env: AppEnv = loadEnv()): Express {
   const jev = new JevClient(env.opencodeZenApiKey, env.opencodeZenBaseUrl);
   const decision = new DecisionService(jev);
   const mastery = new MasteryService(prisma);
-  const pronunciation = new PronunciationService(prisma, decision, mastery);
+  const voiceProviders = createVoiceProviders(env);
+  const pronunciation = new PronunciationService(prisma, decision, mastery, voiceProviders.assessor);
   const quotas = new QuotaService({
     aiDaily: env.aiDailyQuota,
     voiceDaily: env.voiceDailyQuota,
@@ -127,14 +129,14 @@ export function createApp(env: AppEnv = loadEnv()): Express {
   app.use('/v1', createV1Router({
     env,
     auth: new AuthService(prisma, env),
-    coach: new CoachService(prisma, env),
+    coach: new CoachService(prisma, env, decision),
     profiles,
     placement: new PlacementService(prisma),
     progress: new ProgressService(prisma),
     curriculum: new CurriculumService(prisma),
-    ielts: new IeltsService(prisma),
+    ielts: new IeltsService(prisma, env, decision),
     monetization: new MonetizationService(prisma),
-    speaking: new SpeakingService(prisma),
+    speaking: new SpeakingService(prisma, decision),
     vocabulary: new VocabularyService(prisma),
     exposure: new ExposureService(prisma),
     voice: new VoiceService(env),

@@ -80,7 +80,12 @@ class VocabularyRepository {
     }
   }
 
-  Future<void> submitReview(String itemId, String grade, {String? mode}) async {
+  Future<void> submitReview(
+    String itemId,
+    String grade, {
+    String? mode,
+    int? responseTimeMs,
+  }) async {
     if (!const <String>{'again', 'hard', 'good', 'easy'}.contains(grade)) {
       throw ArgumentError.value(
         grade,
@@ -88,7 +93,11 @@ class VocabularyRepository {
         'Unknown vocabulary review grade.',
       );
     }
-    final payload = <String, Object?>{'grade': grade, 'mode': ?mode};
+    final payload = <String, Object?>{
+      'grade': grade,
+      'mode': ?mode,
+      'responseTimeMs': ?responseTimeMs,
+    };
     try {
       await _flushPending();
       await _api.post<Object?>(

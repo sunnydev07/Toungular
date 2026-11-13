@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { AppEnv } from '../config/env.js';
 import { AppError } from '../lib/http.js';
 import { logger } from '../lib/logger.js';
+import type { CoachTurnGateResult, DecisionService } from './decision-service.js';
 
 export type CoachScenario = {
   id: string;
@@ -66,6 +67,7 @@ export class CoachService {
   public constructor(
     private readonly database: PrismaClient,
     private readonly env?: AppEnv,
+    private readonly decision?: DecisionService,
   ) {}
 
   public scenarios() {
@@ -119,7 +121,20 @@ export class CoachService {
     });
 
     const scenario = this.findScenario(conversation.scenarioId);
-    const { replyText, recast, provider } = await this.generateCoachReply(scenario, previousTurns, transcript);
+    const turnGate = this.decision
+      ? await this.decision.gateCoachTurn({
+          scenarioTitle: scenario.title,
+          previousTurns,
+          learnerTurn: transcript,
+        })
+      : null;
+
+    const { replyText, recast, provider } = await this.generateCoachReply(
+      scenario,
+      previousTurns,
+      transcript,
+      turnGate,
+    );
 
     // Save assistant reply turn
     const replyTurn = await this.database.conversationTurn.create({
@@ -136,6 +151,7 @@ export class CoachService {
       provider,
       recast,
       practiceCue: scenario.cue,
+      turnGate,
     };
   }
 
@@ -202,12 +218,13 @@ export class CoachService {
     scenario: CoachScenario,
     turns: Array<{ role: string; text: string }>,
     latestTranscript: string,
+    turnGate?: CoachTurnGateResult | null,
   ): Promise<{ replyText: string; recast: string | null; provider: { status: string; name: string } }> {
     // 1. Google Gemini 3.5 Flash-Lite (Primary System Two Generative LLM)
     if (this.env?.googleApiKey) {
       const startedAt = Date.now();
       try {
-        const result = await this.callGeminiChat(scenario, turns);
+        const result = await this.callGeminiChat(scenario, turns, turnGate);
         if (result) {
           return {
             ...result,
@@ -229,7 +246,7 @@ export class CoachService {
     if (this.env?.openAiApiKey) {
       const startedAt = Date.now();
       try {
-        const result = await this.callOpenAiChat(scenario, turns);
+        const result = await this.callOpenAiChat(scenario, turns, turnGate);
         if (result) return { ...result, provider: { status: 'active', name: 'OpenAI GPT' } };
       } catch (error) {
         logger.warn(
@@ -246,12 +263,13 @@ export class CoachService {
   private async callGeminiChat(
     scenario: CoachScenario,
     turns: Array<{ role: string; text: string }>,
+    turnGate?: CoachTurnGateResult | null,
   ): Promise<{ replyText: string; recast: string | null } | null> {
     const apiKey = this.env?.googleApiKey;
     if (!apiKey) return null;
     const model = this.env?.geminiModel || 'gemini-2.5-flash-lite';
 
-    const systemPrompt = `You are a supportive, warm English Fluency Coach in Toungular named Luna.
+    let systemPrompt = `You are a supportive, warm English Fluency Coach in Toungular named Luna.
 Scenario: "${scenario.title}" (${scenario.description}).
 Target learning words: ${scenario.targetTier2Words.join(', ')}.
 Rules:
@@ -259,6 +277,13 @@ Rules:
 2. If the user made a grammar error, subtly recast the correct phrasing into your response without saying "you made a mistake".
 3. Always ask one open-ended question to keep the dialogue going.
 4. Keep responses encouraging and conversational (max 50 words).`;
+    if (turnGate) {
+      if (turnGate.needsRecast) {
+        systemPrompt += `\nIf needsRecast is true, recast the learner's ${turnGate.errorCategory} error naturally; if isOffTopic is true, gently steer back to ${scenario.title}.`;
+      } else if (turnGate.isOffTopic) {
+        systemPrompt += `\nIf isOffTopic is true, gently steer back to ${scenario.title}.`;
+      }
+    }
 
     // Try Google Gemini native generateContent API
     try {
@@ -345,8 +370,9 @@ Rules:
   private async callOpenAiChat(
     scenario: CoachScenario,
     turns: Array<{ role: string; text: string }>,
+    turnGate?: CoachTurnGateResult | null,
   ): Promise<{ replyText: string; recast: string | null } | null> {
-    const systemPrompt = `You are a supportive, warm English Fluency Coach in Toungular named Luna.
+    let systemPrompt = `You are a supportive, warm English Fluency Coach in Toungular named Luna.
 Scenario: "${scenario.title}" (${scenario.description}).
 Target learning words: ${scenario.targetTier2Words.join(', ')}.
 Rules:
@@ -354,6 +380,13 @@ Rules:
 2. If the user made a grammar error, subtly recast the correct phrasing without saying "you made a mistake".
 3. Always ask one open-ended question to keep the dialogue going.
 4. Keep responses encouraging and conversational (max 50 words).`;
+    if (turnGate) {
+      if (turnGate.needsRecast) {
+        systemPrompt += `\nIf needsRecast is true, recast the learner's ${turnGate.errorCategory} error naturally; if isOffTopic is true, gently steer back to ${scenario.title}.`;
+      } else if (turnGate.isOffTopic) {
+        systemPrompt += `\nIf isOffTopic is true, gently steer back to ${scenario.title}.`;
+      }
+    }
 
     const messages = [
       { role: 'system', content: systemPrompt },

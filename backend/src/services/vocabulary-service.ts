@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { RecallMode, ReviewGrade, VocabularyReview, VocabularyTier } from '../contracts.js';
 import { AppError } from '../lib/http.js';
-import { buildCloze, nextSchedule, recallModeFor, tierOrder } from './srs.js';
+import { buildCloze, computeRetrievability, nextSchedule, recallModeFor, tierOrder } from './srs.js';
 
 const DUE_LIMIT = 20;
 const NEW_ITEM_POOL = 80;
@@ -13,8 +13,11 @@ type ScheduleRecord = {
   intervalDays: number;
   repetitions: number;
   easeFactor: number;
+  stability?: number;
+  difficulty?: number;
   lapses: number;
   lastGrade: string | null;
+  lastReviewedAt?: Date | null;
   source: string;
 };
 
@@ -33,8 +36,11 @@ function emptySchedule(now: Date): ScheduleRecord {
     intervalDays: 0,
     repetitions: 0,
     easeFactor: 2.5,
+    stability: 0,
+    difficulty: 5.0,
     lapses: 0,
     lastGrade: null,
+    lastReviewedAt: null,
     source: 'catalog',
   };
 }
@@ -47,6 +53,15 @@ function toReview(item: PrismaVocabularyItem, schedule: ScheduleRecord, ttsAvail
   const requested = recallModeFor(schedule.repetitions, ttsAvailable);
   const cloze = requested === 'cloze' ? buildCloze(item.example, item.word) : null;
   const recallMode: RecallMode = requested === 'cloze' && !cloze ? 'definition' : requested;
+  const stability = schedule.stability ?? 0;
+  const difficulty = schedule.difficulty ?? 5.0;
+  let retrievability = 1.0;
+  if (stability > 0) {
+    const elapsedDays = schedule.lastReviewedAt
+      ? Math.max(1, Math.round((Date.now() - schedule.lastReviewedAt.getTime()) / 86_400_000))
+      : schedule.intervalDays || 1;
+    retrievability = Number(computeRetrievability(elapsedDays, stability).toFixed(2));
+  }
   return {
     item: {
       id: item.id,
@@ -61,6 +76,9 @@ function toReview(item: PrismaVocabularyItem, schedule: ScheduleRecord, ttsAvail
     intervalDays: schedule.intervalDays,
     repetitions: schedule.repetitions,
     easeFactor: schedule.easeFactor,
+    stability,
+    difficulty,
+    retrievability,
     lapses: schedule.lapses,
     lastGrade: schedule.lastGrade as ReviewGrade | null,
     recallMode,
@@ -121,15 +139,20 @@ export class VocabularyService {
     const current = await this.database.reviewSchedule.findUnique({
       where: { userId_vocabularyId: { userId, vocabularyId: itemId } },
     });
+    const elapsedDays = current?.lastReviewedAt
+      ? Math.max(1, Math.round((now.getTime() - current.lastReviewedAt.getTime()) / 86_400_000))
+      : current?.intervalDays ?? 0;
     const next = nextSchedule(
       {
         intervalDays: current?.intervalDays ?? 0,
         repetitions: current?.repetitions ?? 0,
         easeFactor: current?.easeFactor ?? 2.5,
+        stability: current?.stability ?? 0,
+        difficulty: current?.difficulty ?? 5.0,
         lapses: current?.lapses ?? 0,
       },
       grade,
-      { now, mode, contextual: (current?.source ?? 'catalog') !== 'catalog' },
+      { now, mode, contextual: (current?.source ?? 'catalog') !== 'catalog', elapsedDays },
     );
     const schedule = next;
     const persisted = await this.database.reviewSchedule.upsert({

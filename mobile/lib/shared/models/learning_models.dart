@@ -356,6 +356,9 @@ class VocabularyReview {
     required this.repetitions,
     required this.lastGrade,
     required this.easeFactor,
+    this.stability = 0.0,
+    this.difficulty = 5.0,
+    this.retrievability = 1.0,
     required this.lapses,
     required this.recallMode,
     required this.cloze,
@@ -368,6 +371,9 @@ class VocabularyReview {
   final int repetitions;
   final String? lastGrade;
   final double easeFactor;
+  final double stability;
+  final double difficulty;
+  final double retrievability;
   final int lapses;
   final String recallMode;
   final String? cloze;
@@ -382,6 +388,9 @@ class VocabularyReview {
       repetitions: (map['repetitions'] as num?)?.toInt() ?? 0,
       lastGrade: map['lastGrade'] as String?,
       easeFactor: (map['easeFactor'] as num?)?.toDouble() ?? 2.5,
+      stability: (map['stability'] as num?)?.toDouble() ?? 0.0,
+      difficulty: (map['difficulty'] as num?)?.toDouble() ?? 5.0,
+      retrievability: (map['retrievability'] as num?)?.toDouble() ?? 1.0,
       lapses: (map['lapses'] as num?)?.toInt() ?? 0,
       recallMode: map['recallMode'] as String? ?? 'definition',
       cloze: map['cloze'] as String?,
@@ -396,6 +405,9 @@ class VocabularyReview {
     'repetitions': repetitions,
     'lastGrade': lastGrade,
     'easeFactor': easeFactor,
+    'stability': stability,
+    'difficulty': difficulty,
+    'retrievability': retrievability,
     'lapses': lapses,
     'recallMode': recallMode,
     'cloze': cloze,
@@ -444,6 +456,8 @@ class SpeakingFeedback {
     required this.wpmTrendMessage,
     required this.pronunciationMessage,
     required this.nextStep,
+    this.affective,
+    this.cefrCalibration,
   });
 
   final String label;
@@ -464,6 +478,8 @@ class SpeakingFeedback {
   final String wpmTrendMessage;
   final String pronunciationMessage;
   final String nextStep;
+  final AffectiveAssessmentResult? affective;
+  final CefrCalibrationResult? cefrCalibration;
 
   factory SpeakingFeedback.fromJson(Object? json) {
     final map = _asMap(json);
@@ -499,6 +515,12 @@ class SpeakingFeedback {
           pronunciation['message'] as String? ??
           'Pronunciation scoring is unavailable.',
       nextStep: map['nextStep'] as String? ?? 'Try another short response.',
+      affective: map['affective'] != null
+          ? AffectiveAssessmentResult.fromJson(map['affective'])
+          : null,
+      cefrCalibration: map['cefrCalibration'] != null
+          ? CefrCalibrationResult.fromJson(map['cefrCalibration'])
+          : null,
     );
   }
 }
@@ -620,6 +642,45 @@ class CoachConversation {
   }
 }
 
+class CoachTurnGate {
+  const CoachTurnGate({
+    required this.isOffTopic,
+    required this.needsRecast,
+    required this.errorCategory,
+    required this.sentiment,
+    required this.latencyMs,
+    required this.provider,
+  });
+
+  final bool isOffTopic;
+  final bool needsRecast;
+  final String errorCategory;
+  final String sentiment;
+  final int latencyMs;
+  final String provider;
+
+  factory CoachTurnGate.fromJson(Object? json) {
+    final map = _asMap(json);
+    return CoachTurnGate(
+      isOffTopic: map['isOffTopic'] as bool? ?? false,
+      needsRecast: map['needsRecast'] as bool? ?? false,
+      errorCategory: map['errorCategory'] as String? ?? 'none',
+      sentiment: map['sentiment'] as String? ?? 'cooperative',
+      latencyMs: (map['latencyMs'] as num?)?.toInt() ?? 0,
+      provider: map['provider'] as String? ?? 'heuristic-calibrated',
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'isOffTopic': isOffTopic,
+    'needsRecast': needsRecast,
+    'errorCategory': errorCategory,
+    'sentiment': sentiment,
+    'latencyMs': latencyMs,
+    'provider': provider,
+  };
+}
+
 class CoachTurnReceipt {
   const CoachTurnReceipt({
     required this.turn,
@@ -627,6 +688,7 @@ class CoachTurnReceipt {
     required this.practiceCue,
     this.replyTurn,
     this.recast,
+    this.turnGate,
   });
 
   final CoachTurn turn;
@@ -634,6 +696,7 @@ class CoachTurnReceipt {
   final String? recast;
   final int turnsCount;
   final String practiceCue;
+  final CoachTurnGate? turnGate;
 
   factory CoachTurnReceipt.fromJson(Object? json) {
     final map = _asMap(json);
@@ -647,6 +710,9 @@ class CoachTurnReceipt {
       practiceCue:
           map['practiceCue'] as String? ??
           'Add one clear detail to your response.',
+      turnGate: map['turnGate'] != null
+          ? CoachTurnGate.fromJson(map['turnGate'])
+          : null,
     );
   }
 }
@@ -724,6 +790,111 @@ class IeltsAttemptReference {
   }
 }
 
+class IeltsCriterionScore {
+  const IeltsCriterionScore({
+    required this.score,
+    required this.label,
+    required this.notes,
+  });
+
+  final double score;
+  final String label;
+  final String notes;
+
+  factory IeltsCriterionScore.fromJson(Object? json) {
+    final map = _asMap(json);
+    return IeltsCriterionScore(
+      score: (map['score'] as num?)?.toDouble() ?? 5.5,
+      label: map['label'] as String? ?? '',
+      notes: map['notes'] as String? ?? '',
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'score': score,
+    'label': label,
+    'notes': notes,
+  };
+}
+
+class IeltsPhraseUpgrade {
+  const IeltsPhraseUpgrade({
+    required this.original,
+    required this.upgraded,
+    required this.reason,
+  });
+
+  final String original;
+  final String upgraded;
+  final String reason;
+
+  factory IeltsPhraseUpgrade.fromJson(Object? json) {
+    final map = _asMap(json);
+    return IeltsPhraseUpgrade(
+      original: map['original'] as String? ?? '',
+      upgraded: map['upgraded'] as String? ?? '',
+      reason: map['reason'] as String? ?? '',
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'original': original,
+    'upgraded': upgraded,
+    'reason': reason,
+  };
+}
+
+class IeltsBandRubric {
+  const IeltsBandRubric({
+    required this.overallBandEstimate,
+    required this.fluencyAndCoherence,
+    required this.lexicalResource,
+    required this.grammaticalRange,
+    required this.pronunciation,
+    required this.upgradedPhrases,
+    required this.disclaimer,
+  });
+
+  final double overallBandEstimate;
+  final IeltsCriterionScore fluencyAndCoherence;
+  final IeltsCriterionScore lexicalResource;
+  final IeltsCriterionScore grammaticalRange;
+  final IeltsCriterionScore pronunciation;
+  final List<IeltsPhraseUpgrade> upgradedPhrases;
+  final String disclaimer;
+
+  factory IeltsBandRubric.fromJson(Object? json) {
+    final map = _asMap(json);
+    return IeltsBandRubric(
+      overallBandEstimate:
+          (map['overallBandEstimate'] as num?)?.toDouble() ?? 5.5,
+      fluencyAndCoherence: IeltsCriterionScore.fromJson(
+        map['fluencyAndCoherence'],
+      ),
+      lexicalResource: IeltsCriterionScore.fromJson(map['lexicalResource']),
+      grammaticalRange: IeltsCriterionScore.fromJson(map['grammaticalRange']),
+      pronunciation: IeltsCriterionScore.fromJson(map['pronunciation']),
+      upgradedPhrases:
+          (map['upgradedPhrases'] as List<dynamic>? ?? const <dynamic>[])
+              .map(IeltsPhraseUpgrade.fromJson)
+              .toList(growable: false),
+      disclaimer:
+          map['disclaimer'] as String? ??
+          'Practice estimate only — not an official IELTS band score.',
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'overallBandEstimate': overallBandEstimate,
+    'fluencyAndCoherence': fluencyAndCoherence.toJson(),
+    'lexicalResource': lexicalResource.toJson(),
+    'grammaticalRange': grammaticalRange.toJson(),
+    'pronunciation': pronunciation.toJson(),
+    'upgradedPhrases': upgradedPhrases.map((u) => u.toJson()).toList(),
+    'disclaimer': disclaimer,
+  };
+}
+
 class IeltsAttemptRecord {
   const IeltsAttemptRecord({
     required this.id,
@@ -733,6 +904,7 @@ class IeltsAttemptRecord {
     required this.finishedAt,
     required this.feedback,
     required this.responses,
+    this.rubric,
   });
 
   final String id;
@@ -742,6 +914,7 @@ class IeltsAttemptRecord {
   final DateTime? finishedAt;
   final String? feedback;
   final List<IeltsSavedResponse> responses;
+  final IeltsBandRubric? rubric;
 
   bool get isInProgress => status == 'in_progress';
   Set<String> get answeredSectionIds =>
@@ -759,6 +932,9 @@ class IeltsAttemptRecord {
       responses: (map['responses'] as List<dynamic>? ?? const <dynamic>[])
           .map(IeltsSavedResponse.fromJson)
           .toList(growable: false),
+      rubric: map['rubric'] != null
+          ? IeltsBandRubric.fromJson(map['rubric'])
+          : null,
     );
   }
 }

@@ -124,6 +124,8 @@ model ReviewSchedule {
   intervalDays   Int            @default(0)
   repetitions    Int            @default(0)
   easeFactor     Float          @default(2.5)
+  stability      Float          @default(0)
+  difficulty     Float          @default(5.0)
   lapses         Int            @default(0)
   lastGrade      String?
   lastRecallMode String?

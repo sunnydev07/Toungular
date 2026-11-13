@@ -25,6 +25,8 @@ const environmentSchema = z.object({
   DEEPGRAM_API_KEY: z.string().min(8).optional(),
   OPENCODE_ZEN_API_KEY: z.string().min(8).optional(),
   OPENCODE_ZEN_BASE_URL: z.string().url().default('https://api.opencode.ai/v1'),
+  AZURE_SPEECH_KEY: z.string().min(8).optional(),
+  AZURE_SPEECH_REGION: z.string().min(2).default('centralindia'),
   VOICE_CACHE_DIR: z.string().min(1).default('storage/audio-cache'),
   AI_DAILY_QUOTA: z.coerce.number().int().min(1).max(100_000).default(200),
   VOICE_DAILY_QUOTA: z.coerce.number().int().min(1).max(100_000).default(500),
@@ -47,6 +49,8 @@ export type AppEnv = {
   deepgramApiKey: string | undefined;
   opencodeZenApiKey: string | undefined;
   opencodeZenBaseUrl: string;
+  azureSpeechKey: string | undefined;
+  azureSpeechRegion: string;
   voiceCacheDir: string;
   aiDailyQuota: number;
   voiceDailyQuota: number;
@@ -78,6 +82,8 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     deepgramApiKey: parsed.data.DEEPGRAM_API_KEY,
     opencodeZenApiKey: parsed.data.OPENCODE_ZEN_API_KEY,
     opencodeZenBaseUrl: parsed.data.OPENCODE_ZEN_BASE_URL,
+    azureSpeechKey: parsed.data.AZURE_SPEECH_KEY,
+    azureSpeechRegion: parsed.data.AZURE_SPEECH_REGION,
     voiceCacheDir: parsed.data.VOICE_CACHE_DIR,
     aiDailyQuota: parsed.data.AI_DAILY_QUOTA,
     voiceDailyQuota: parsed.data.VOICE_DAILY_QUOTA,

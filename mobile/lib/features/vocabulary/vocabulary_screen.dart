@@ -20,6 +20,7 @@ class VocabularyScreen extends ConsumerStatefulWidget {
 
 class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
   final _player = AudioPlayer();
+  final _cardStopwatch = Stopwatch();
   late Future<List<VocabularyReview>> _items;
   int _index = 0;
   bool _revealed = false;
@@ -33,6 +34,7 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
     super.initState();
     _items = ref.read(vocabularyRepositoryProvider).loadDueItems();
     _loadVoiceStatus();
+    _cardStopwatch.start();
   }
 
   @override
@@ -75,10 +77,18 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
     }
   }
 
+  String? _suggestedGrade() {
+    final ms = _cardStopwatch.elapsedMilliseconds;
+    if (ms < 3500) return 'easy';
+    if (ms <= 8000) return 'good';
+    return 'hard';
+  }
+
   Future<void> _grade(String grade) async {
     final items = await _items;
     if (_index >= items.length) return;
     final review = items[_index];
+    final elapsedMs = _cardStopwatch.elapsedMilliseconds;
     setState(() {
       _busy = true;
       _error = null;
@@ -86,12 +96,19 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
     try {
       await ref
           .read(vocabularyRepositoryProvider)
-          .submitReview(review.item.id, grade, mode: review.recallMode);
+          .submitReview(
+            review.item.id,
+            grade,
+            mode: review.recallMode,
+            responseTimeMs: elapsedMs,
+          );
       if (mounted) {
         setState(() {
           _index++;
           _revealed = false;
         });
+        _cardStopwatch.reset();
+        _cardStopwatch.start();
       }
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -110,6 +127,8 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
       _revealed = false;
       _items = ref.read(vocabularyRepositoryProvider).loadDueItems();
     });
+    _cardStopwatch.reset();
+    _cardStopwatch.start();
   }
 
   Future<void> _addWord() async {
@@ -262,6 +281,12 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
+                  if (review.stability > 0) ...<Widget>[
+                    Chip(
+                      label: Text('Stability: ${review.stability.toStringAsFixed(1)}d'),
+                    ),
+                    const SizedBox(width: ToungularSpace.xs),
+                  ],
                   Chip(label: Text(_modeHint(review))),
                 ],
               ),
@@ -286,7 +311,10 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
                 FilledButton(
                   onPressed: _busy
                       ? null
-                      : () => setState(() => _revealed = true),
+                      : () {
+                          _cardStopwatch.stop();
+                          setState(() => _revealed = true);
+                        },
                   child: Text(
                     review.recallMode == 'sentence'
                         ? 'Reveal an example'
@@ -307,7 +335,30 @@ class _VocabularyScreenState extends ConsumerState<VocabularyScreen> {
                 ]) ...<Widget>[
                   OutlinedButton(
                     onPressed: _busy ? null : () => _grade(grade.$1),
-                    child: Text(grade.$2),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Text(grade.$2),
+                        if (grade.$1 == _suggestedGrade()) ...<Widget>[
+                          const SizedBox(width: ToungularSpace.s),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              'Suggested',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: ToungularSpace.xs),
                 ],

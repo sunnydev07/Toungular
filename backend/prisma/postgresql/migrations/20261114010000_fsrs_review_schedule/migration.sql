@@ -1,0 +1,2 @@
+ALTER TABLE "ReviewSchedule" ADD COLUMN "stability" REAL NOT NULL DEFAULT 0;
+ALTER TABLE "ReviewSchedule" ADD COLUMN "difficulty" REAL NOT NULL DEFAULT 5.0;

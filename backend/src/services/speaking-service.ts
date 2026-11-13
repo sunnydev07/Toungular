@@ -1,12 +1,16 @@
 import type { PrismaClient } from '@prisma/client';
 
 import { AppError } from '../lib/http.js';
-import { analyzeTranscript, wpmTrend } from './fluency.js';
+import type { AffectiveAssessmentResult, CefrCalibrationResult, DecisionService } from './decision-service.js';
+import { analyzeTranscript, wpmTrend, type WordTiming } from './fluency.js';
 
 const FEEDBACK_LIMIT = 5;
 
 export class SpeakingService {
-  public constructor(private readonly database: PrismaClient) {}
+  public constructor(
+    private readonly database: PrismaClient,
+    private readonly decision?: DecisionService,
+  ) {}
 
   public async start(userId: string, input: { type: string; prompt: string }) {
     return this.database.speakingSession.create({
@@ -28,7 +32,12 @@ export class SpeakingService {
   public async analyze(
     userId: string,
     id: string,
-    input: { durationSeconds: number; transcript?: string | undefined; pauses?: number[] | undefined },
+    input: {
+      durationSeconds: number;
+      transcript?: string | undefined;
+      pauses?: number[] | undefined;
+      wordTimings?: WordTiming[] | undefined;
+    },
   ) {
     const session = await this.database.speakingSession.findFirst({ where: { id, userId, deletedAt: null } });
     if (!session) throw new AppError(404, 'SPEAKING_SESSION_NOT_FOUND', 'The speaking session was not found.');
@@ -50,7 +59,7 @@ export class SpeakingService {
       throw new AppError(422, 'IMPLAUSIBLE_PAUSES', 'The reported pauses do not fit inside the recording length.');
     }
 
-    const analysis = analyzeTranscript(transcript, duration, pauses);
+    const analysis = analyzeTranscript(transcript, duration, pauses, input.wordTimings);
     const previous = await this.database.speakingSession.findMany({
       where: { userId, status: 'completed', deletedAt: null, feedback: { not: null }, id: { not: id } },
       orderBy: { completedAt: 'desc' },
@@ -65,6 +74,26 @@ export class SpeakingService {
       });
     const trend = wpmTrend(previousWpm, analysis.wordsPerMinute);
 
+    let affective: AffectiveAssessmentResult | undefined;
+    let cefrCalibration: CefrCalibrationResult | undefined;
+    if (this.decision) {
+      try {
+        const [aff, cefr] = await Promise.all([
+          this.decision.assessAffectiveState({
+            transcript,
+            durationSeconds: duration,
+            pauseCount: analysis.pauseCount,
+            wpm: analysis.wordsPerMinute,
+          }),
+          this.decision.calibrateCefrLevel({ transcript }),
+        ]);
+        affective = aff;
+        cefrCalibration = cefr;
+      } catch {
+        // Fallback gracefully if decision service is unavailable
+      }
+    }
+
     const result = {
       label: 'Practice estimate based on your transcript and session length',
       ...analysis,
@@ -76,6 +105,8 @@ export class SpeakingService {
         message: trend.message,
       },
       pronunciation: { status: 'unavailable', message: 'Pronunciation scoring is not configured yet.' },
+      ...(affective ? { affective } : {}),
+      ...(cefrCalibration ? { cefrCalibration } : {}),
     };
 
     if (session.type === 'anonymous') {

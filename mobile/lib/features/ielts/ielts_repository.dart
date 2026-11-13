@@ -49,11 +49,10 @@ class IeltsRepository {
     );
   }
 
-  Future<String> finishAttempt(String attemptId) => _api.post<String>(
-    '/v1/ielts/attempts/$attemptId/finish',
-    const <String, Object?>{},
-    (json) => json is Map
-        ? json['feedback'] as String? ?? 'Practice saved.'
-        : 'Practice saved.',
-  );
+  Future<IeltsAttemptRecord> finishAttempt(String attemptId) =>
+      _api.post<IeltsAttemptRecord>(
+        '/v1/ielts/attempts/$attemptId/finish',
+        const <String, Object?>{},
+        IeltsAttemptRecord.fromJson,
+      );
 }
