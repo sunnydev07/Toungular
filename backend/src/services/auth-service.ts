@@ -1,9 +1,9 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import type { PrismaClient } from '@prisma/client';
 
 import type { AppEnv } from '../config/env.js';
-import type { AuthResult, LoginInput, RegisterInput } from '../contracts.js';
+import type { AuthResult, LoginInput, RegisterInput, UpgradeGuestInput } from '../contracts.js';
 import { AppError, isPrismaCode } from '../lib/http.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import { hashRefreshToken, issueAccessToken, issueRefreshToken } from '../lib/tokens.js';
@@ -66,6 +66,64 @@ export class AuthService {
     return this.createAuthResult(user);
   }
 
+  /**
+   * Creates a throwaway account a device can use without credentials. The
+   * generated password is never returned, so the only way back into this
+   * account is the session stored on the device or an upgrade to a real one.
+   */
+  public async createGuest(): Promise<AuthResult> {
+    const user = await this.database.user.create({
+      data: {
+        email: `guest-${randomUUID()}@guest.toungular.app`,
+        passwordHash: await hashPassword(randomBytes(48).toString('base64url')),
+        isGuest: true,
+        profile: { create: {} },
+      },
+    });
+    return await this.createAuthResult(user);
+  }
+
+  /**
+   * Turns a guest into a permanent account in place so the progress made while
+   * exploring without an account survives the later sign-up.
+   */
+  public async upgradeGuest(userId: string, input: UpgradeGuestInput): Promise<AuthResult> {
+    const guest = await this.database.user.findUnique({
+      where: { id: userId },
+      select: { id: true, isGuest: true },
+    });
+    if (!guest) {
+      throw new AppError(404, 'ACCOUNT_NOT_FOUND', 'This account no longer exists.');
+    }
+    if (!guest.isGuest) {
+      throw new AppError(409, 'ACCOUNT_ALREADY_REGISTERED', 'This account already has an email and password.');
+    }
+
+    const email = input.email.trim().toLowerCase();
+    const existing = await this.database.user.findUnique({ where: { email }, select: { id: true } });
+    if (existing) {
+      throw new AppError(409, 'EMAIL_IN_USE', 'An account already exists for this email address.');
+    }
+
+    try {
+      const user = await this.database.user.update({
+        where: { id: userId },
+        data: { email, passwordHash: await hashPassword(input.password), isGuest: false },
+      });
+      return await this.createAuthResult(user);
+    } catch (error) {
+      if (isPrismaCode(error, 'P2002')) {
+        throw new AppError(409, 'EMAIL_IN_USE', 'An account already exists for this email address.');
+      }
+      throw error;
+    }
+  }
+
+  public async isGuest(userId: string): Promise<boolean> {
+    const user = await this.database.user.findUnique({ where: { id: userId }, select: { isGuest: true } });
+    return user?.isGuest ?? false;
+  }
+
   public async refresh(refreshToken: string): Promise<AuthResult> {
     const tokenHash = hashRefreshToken(refreshToken);
     const current = await this.database.refreshToken.findUnique({
@@ -115,7 +173,7 @@ export class AuthService {
 
     const profile = await this.profiles.get(rotated.id);
     return {
-      user: { id: rotated.id, email: rotated.email },
+      user: { id: rotated.id, email: rotated.email, isGuest: rotated.isGuest },
       profile,
       accessToken: issueAccessToken({ userId: rotated.id, email: rotated.email }, this.env),
       refreshToken: replacement.token,
@@ -157,7 +215,7 @@ export class AuthService {
     });
   }
 
-  private async createAuthResult(user: { id: string; email: string }): Promise<AuthResult> {
+  private async createAuthResult(user: { id: string; email: string; isGuest: boolean }): Promise<AuthResult> {
     const refresh = issueRefreshToken();
     await this.database.refreshToken.create({
       data: {
@@ -169,7 +227,7 @@ export class AuthService {
     });
     const profile = await this.profiles.get(user.id);
     return {
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, email: user.email, isGuest: user.isGuest },
       profile,
       accessToken: issueAccessToken({ userId: user.id, email: user.email }, this.env),
       refreshToken: refresh.token,

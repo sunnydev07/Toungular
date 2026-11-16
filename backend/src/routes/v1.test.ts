@@ -19,7 +19,11 @@ function tokenFor(userId: string): string {
   return issueAccessToken({ userId, email: `${userId}@toungular.app` }, env);
 }
 
-function createHarness(options: { aiDaily?: number } = {}) {
+function createHarness(options: {
+  aiDaily?: number;
+  auth?: Record<string, unknown>;
+  monetization?: Record<string, unknown>;
+} = {}) {
   const calls = { addTurn: 0, schedule: 0, xp: 0 };
   const seen: Array<{ userId: string; limit: number; offset: number }> = [];
   const removed: Array<{ userId: string; id: string }> = [];
@@ -81,9 +85,9 @@ function createHarness(options: { aiDaily?: number } = {}) {
     },
     vocabulary: { scheduleEncounterWords: async () => { calls.schedule += 1; return 0; } },
     mastery: { awardXp: async () => { calls.xp += 1; return {}; } },
-    auth: {},
+    auth: options.auth ?? {},
     ielts: {},
-    monetization: {},
+    monetization: options.monetization ?? {},
     profiles: {},
     placement: {},
     progress: {},
@@ -103,6 +107,55 @@ function createHarness(options: { aiDaily?: number } = {}) {
 
   return { app, calls, seen, removed };
 }
+
+test('a guest session can be started without credentials', async () => {
+  const { app } = createHarness({
+    auth: {
+      createGuest: async () => ({
+        user: { id: 'guest-1', email: 'guest-1@guest.toungular.app', isGuest: true },
+        profile: { userId: 'guest-1', goals: [] },
+        accessToken: 'access',
+        refreshToken: 'refresh',
+      }),
+    },
+  });
+
+  const response = await request(app).post('/v1/auth/guest');
+
+  assert.equal(response.status, 201);
+  assert.equal(response.body.data.user.isGuest, true);
+});
+
+test('guest sessions cannot reach purchases or referrals', async () => {
+  const { app } = createHarness({ auth: { isGuest: async () => true } });
+  const token = tokenFor('guest-1');
+
+  const entitlements = await request(app)
+    .get('/v1/entitlements')
+    .set('Authorization', `Bearer ${token}`);
+  const referral = await request(app)
+    .get('/v1/referrals/me')
+    .set('Authorization', `Bearer ${token}`);
+
+  assert.equal(entitlements.status, 403);
+  assert.equal(entitlements.body.error.code, 'GUEST_ACCOUNT');
+  assert.equal(referral.status, 403);
+  assert.equal(referral.body.error.code, 'GUEST_ACCOUNT');
+});
+
+test('permanent accounts still reach entitlements', async () => {
+  const { app } = createHarness({
+    auth: { isGuest: async () => false },
+    monetization: { entitlements: async () => ({ premium: false }) },
+  });
+
+  const response = await request(app)
+    .get('/v1/entitlements')
+    .set('Authorization', `Bearer ${tokenFor('user-1')}`);
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.data.premium, false);
+});
 
 test('protected routes reject requests without a bearer token', async () => {
   const { app } = createHarness();

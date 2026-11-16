@@ -59,6 +59,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
   Widget build(BuildContext context) {
     final session = ref.watch(sessionControllerProvider);
     final email = session.session?.profile.email ?? '';
+    final isGuest = session.isGuest;
 
     return Scaffold(
       body: SafeArea(
@@ -106,6 +107,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                         const <VocabularyReview>[],
                   ),
                   email,
+                  isGuest,
                 ),
               ),
         ),
@@ -113,7 +115,12 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     );
   }
 
-  Widget _content(BuildContext context, _TodayData data, String email) {
+  Widget _content(
+    BuildContext context,
+    _TodayData data,
+    String email,
+    bool isGuest,
+  ) {
     final roadmap = data.roadmap;
     final lesson = roadmap.nextLesson;
     RoadmapCourse? course;
@@ -149,7 +156,15 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         ToungularSpace.xl,
       ),
       children: <Widget>[
-        _GreetingRow(email: email, streak: data.streak?.currentDays ?? 0),
+        _GreetingRow(
+          email: email,
+          guest: isGuest,
+          streak: data.streak?.currentDays ?? 0,
+        ),
+        if (isGuest) ...<Widget>[
+          const SizedBox(height: ToungularSpace.s),
+          const _GuestBanner(),
+        ],
         const SizedBox(height: ToungularSpace.m),
         if (roadmap.source == RoadmapSource.cached)
           Padding(
@@ -270,9 +285,14 @@ class _MessageCard extends StatelessWidget {
 }
 
 class _GreetingRow extends StatelessWidget {
-  const _GreetingRow({required this.email, required this.streak});
+  const _GreetingRow({
+    required this.email,
+    required this.guest,
+    required this.streak,
+  });
 
   final String email;
+  final bool guest;
   final int streak;
 
   static const _days = <String>[
@@ -302,13 +322,17 @@ class _GreetingRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final local = email.split('@').first;
+    final local = guest ? '' : email.split('@').first;
     final greeting = now.hour < 12
         ? 'Good morning'
         : now.hour < 18
         ? 'Good afternoon'
         : 'Good evening';
-    final initial = local.isEmpty ? 'T' : local[0].toUpperCase();
+    final initial = guest
+        ? 'G'
+        : local.isEmpty
+        ? 'T'
+        : local[0].toUpperCase();
 
     return Row(
       children: <Widget>[
@@ -344,7 +368,7 @@ class _GreetingRow extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               Text(
-                '$greeting, $local',
+                guest ? greeting : '$greeting, $local',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium,
@@ -737,4 +761,40 @@ class _WeekCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _GuestBanner extends StatelessWidget {
+  const _GuestBanner();
+
+  @override
+  Widget build(BuildContext context) => Card(
+    color: ToungularColor.lime.withValues(alpha: 0.3),
+    child: Padding(
+      padding: const EdgeInsets.all(ToungularSpace.m),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Icon(Icons.explore_outlined, size: 20),
+              const SizedBox(width: ToungularSpace.xs),
+              Text(
+                'Guest mode',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: ToungularSpace.xs),
+          const Text(
+            'Your lessons and practice are saved on this device only. Create an account to keep them and to use Plus or referrals.',
+          ),
+          const SizedBox(height: ToungularSpace.s),
+          OutlinedButton(
+            onPressed: () => context.push('/upgrade'),
+            child: const Text('Create an account'),
+          ),
+        ],
+      ),
+    ),
+  );
 }

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/theme/toungular_theme.dart';
 import '../../shared/models/learning_models.dart';
+import '../auth/session_controller.dart';
 import 'monetization_repository.dart';
 
 class ToungularPlusScreen extends ConsumerStatefulWidget {
@@ -22,6 +24,24 @@ class _ToungularPlusScreenState extends ConsumerState<ToungularPlusScreen> {
   String? _error;
 
   Future<(EntitlementSnapshot, ReferralSummary)> _load() async {
+    // Purchases and referrals need a permanent account, so a guest must not
+    // trigger the authenticated billing calls at all.
+    if (ref.read(sessionControllerProvider).isGuest) {
+      return (
+        const EntitlementSnapshot(
+          plan: 'free',
+          premium: false,
+          productId: null,
+          expiresAt: null,
+        ),
+        const ReferralSummary(
+          code: '',
+          redeemed: false,
+          referredCount: 0,
+          reward: '',
+        ),
+      );
+    }
     final repository = ref.read(monetizationRepositoryProvider);
     final values = await Future.wait<Object>(<Future<Object>>[
       repository.entitlements(),
@@ -95,7 +115,34 @@ class _ToungularPlusScreenState extends ConsumerState<ToungularPlusScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    if (ref.watch(sessionControllerProvider).isGuest) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Toungular Plus')),
+        body: ListView(
+          padding: const EdgeInsets.all(ToungularSpace.l),
+          children: <Widget>[
+            Text(
+              'Plus needs an account',
+              style: Theme.of(context).textTheme.displaySmall,
+            ),
+            const SizedBox(height: ToungularSpace.s),
+            const Text(
+              'Toungular Plus, purchases, and referral rewards belong to an account you can sign in to. Create an account to keep your guest practice and use them.',
+            ),
+            const SizedBox(height: ToungularSpace.l),
+            FilledButton(
+              onPressed: () => context.push('/upgrade'),
+              child: const Text('Create an account'),
+            ),
+          ],
+        ),
+      );
+    }
+    return _buildPlus(context);
+  }
+
+  Widget _buildPlus(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Toungular Plus')),
     body: FutureBuilder<(EntitlementSnapshot, ReferralSummary)>(
       future: _data,

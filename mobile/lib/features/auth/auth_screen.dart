@@ -60,6 +60,29 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
+  Future<void> _continueAsGuest() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final session = await ref
+          .read(authRepositoryProvider)
+          .continueAsGuest();
+      if (!mounted) return;
+      ref.read(sessionControllerProvider.notifier).accept(session);
+      context.go(session.profile.needsOnboarding ? '/onboarding' : '/home');
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Guest mode could not start. Please try again.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -195,6 +218,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                     : 'New to Toungular? Create an account',
                               ),
                             ),
+                            const Divider(height: ToungularSpace.l),
+                            OutlinedButton(
+                              onPressed: _busy ? null : _continueAsGuest,
+                              child: const Text('Continue without an account'),
+                            ),
+                            const SizedBox(height: ToungularSpace.xs),
+                            Text(
+                              'Guest mode keeps practice on this device. An account is needed to keep it across devices and to use Plus or referrals.',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
                           ],
                         ),
                       ),
@@ -202,7 +236,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ),
                   const SizedBox(height: ToungularSpace.m),
                   Text(
-                    'Your learning profile and practice history stay with your account.',
+                    'Create an account later to keep your learning profile and practice history across devices.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),

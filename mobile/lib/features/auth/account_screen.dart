@@ -61,18 +61,36 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final email = ref.watch(sessionControllerProvider).session?.email ?? '';
+    final session = ref.watch(sessionControllerProvider);
+    final isGuest = session.isGuest;
+    final email = session.session?.email ?? '';
     return Scaffold(
       appBar: AppBar(title: const Text('Account')),
       body: ListView(
         padding: const EdgeInsets.all(ToungularSpace.l),
         children: <Widget>[
           Text(
-            'Your Toungular account',
+            isGuest ? 'Guest account' : 'Your Toungular account',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: ToungularSpace.s),
-          Text(email),
+          Text(
+            isGuest
+                ? 'You are exploring Toungular without an account. Your practice on this device is kept in a temporary guest profile.'
+                : email,
+          ),
+          if (isGuest) ...<Widget>[
+            const SizedBox(height: ToungularSpace.s),
+            const Text(
+              'Create an account to keep this progress on other devices and to use Toungular Plus and referrals.',
+            ),
+            const SizedBox(height: ToungularSpace.m),
+            FilledButton.icon(
+              onPressed: _busy ? null : () => context.push('/upgrade'),
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text('Create an account'),
+            ),
+          ],
           const SizedBox(height: ToungularSpace.xl),
           OutlinedButton.icon(
             onPressed: _busy
@@ -84,19 +102,30 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                     if (context.mounted) context.go('/auth');
                   },
             icon: const Icon(Icons.logout),
-            label: const Text('Sign out'),
+            label: Text(isGuest ? 'Exit guest mode' : 'Sign out'),
           ),
           const SizedBox(height: ToungularSpace.xl),
-          Text('Delete account', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            isGuest ? 'Delete guest data' : 'Delete account',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: ToungularSpace.xs),
-          const Text(
-            'This deletes your Toungular account and learning records. Purchases and financial records, if ever enabled, may be subject to separate legal retention rules.',
+          Text(
+            isGuest
+                ? 'This deletes the temporary guest profile, practice history, and reviews saved for this device.'
+                : 'This deletes your Toungular account and learning records. Purchases and financial records, if ever enabled, may be subject to separate legal retention rules.',
           ),
           const SizedBox(height: ToungularSpace.s),
           FilledButton.tonalIcon(
             onPressed: _busy ? null : _deleteAccount,
             icon: const Icon(Icons.delete_forever_outlined),
-            label: Text(_busy ? 'Deleting…' : 'Delete my account'),
+            label: Text(
+              _busy
+                  ? 'Deleting…'
+                  : isGuest
+                  ? 'Delete my guest data'
+                  : 'Delete my account',
+            ),
           ),
           if (_error != null) ...<Widget>[
             const SizedBox(height: ToungularSpace.s),

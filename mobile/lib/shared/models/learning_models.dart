@@ -75,6 +75,7 @@ class LearnerSession {
     required this.accessToken,
     required this.refreshToken,
     required this.profile,
+    this.isGuest = false,
   });
 
   final String userId;
@@ -83,12 +84,17 @@ class LearnerSession {
   final String refreshToken;
   final LearnerProfile profile;
 
+  /// Guest sessions are anonymous server accounts that only exist on this
+  /// device until the learner creates an account.
+  final bool isGuest;
+
   LearnerSession withProfile(LearnerProfile value) => LearnerSession(
     userId: userId,
     email: email,
     accessToken: accessToken,
     refreshToken: refreshToken,
     profile: value,
+    isGuest: isGuest,
   );
 
   factory LearnerSession.fromAuthData(Object? json) {
@@ -100,6 +106,7 @@ class LearnerSession {
       accessToken: map['accessToken'] as String? ?? '',
       refreshToken: map['refreshToken'] as String? ?? '',
       profile: LearnerProfile.fromJson(map['profile']),
+      isGuest: user['isGuest'] as bool? ?? false,
     );
   }
 
@@ -111,6 +118,7 @@ class LearnerSession {
       accessToken: map['accessToken'] as String? ?? '',
       refreshToken: map['refreshToken'] as String? ?? '',
       profile: LearnerProfile.fromJson(map['profile']),
+      isGuest: map['isGuest'] as bool? ?? false,
     );
   }
 
@@ -120,6 +128,7 @@ class LearnerSession {
     'accessToken': accessToken,
     'refreshToken': refreshToken,
     'profile': profile.toJson(),
+    'isGuest': isGuest,
   };
 }
 

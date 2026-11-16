@@ -39,4 +39,19 @@ void main() {
     expect(find.text('Create your account'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Create account'), findsOneWidget);
   });
+
+  testWidgets('offers guest mode with its limits', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: AuthScreen())),
+    );
+
+    expect(
+      find.widgetWithText(OutlinedButton, 'Continue without an account'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Guest mode keeps practice on this device'),
+      findsOneWidget,
+    );
+  });
 }

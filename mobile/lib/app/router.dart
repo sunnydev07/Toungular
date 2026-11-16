@@ -6,6 +6,7 @@ import '../features/auth/auth_screen.dart';
 import '../features/auth/account_screen.dart';
 import '../features/auth/onboarding_screen.dart';
 import '../features/auth/session_controller.dart';
+import '../features/auth/upgrade_screen.dart';
 import '../features/coach/coach_conversation_screen.dart';
 import '../features/coach/coach_scenarios_screen.dart';
 import '../features/content/content_screen.dart';
@@ -45,6 +46,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final path = state.matchedLocation;
       final isAuthRoute = path == '/auth' || path == '/';
       final isOnboardingRoute = path == '/onboarding';
+      final isUpgradeRoute = path == '/upgrade';
 
       if (!session.isSignedIn) {
         return isAuthRoute ? null : '/auth';
@@ -53,6 +55,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return isOnboardingRoute ? null : '/onboarding';
       }
       if (path == '/auth') {
+        return '/home';
+      }
+      // Only guests have an account to upgrade.
+      if (isUpgradeRoute && !session.isGuest) {
         return '/home';
       }
       return null;
@@ -79,6 +85,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/upgrade',
+        builder: (context, state) => const UpgradeScreen(),
       ),
       GoRoute(
         path: '/account',

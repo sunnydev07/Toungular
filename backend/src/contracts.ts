@@ -11,6 +11,8 @@ export type RegisterInput = {
 
 export type LoginInput = { email: string; password: string };
 
+export type UpgradeGuestInput = { email: string; password: string };
+
 export type ProfilePatch = {
   goals?: string[];
   proficiency?: Proficiency;
@@ -30,7 +32,7 @@ export type Profile = {
 };
 
 export type AuthResult = {
-  user: { id: string; email: string };
+  user: { id: string; email: string; isGuest: boolean };
   profile: Profile;
   accessToken: string;
   refreshToken: string;

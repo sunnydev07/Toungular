@@ -182,9 +182,14 @@ class ApiClient {
       // Access tokens live 15 minutes, so a 401 is routine rather than a
       // signed-out session. Rotate the token and replay the request once.
       if (error.response?.statusCode != 401) rethrow;
-      // Login and refresh failures are the server's answer, but logout should
-      // retry with a rotated access token so the refresh token is revoked.
-      if (path.startsWith('/v1/auth/') && path != '/v1/auth/logout') rethrow;
+      // Login and refresh failures are the server's answer, but logout and the
+      // guest upgrade are authenticated actions, so retry them with a rotated
+      // access token.
+      if (path.startsWith('/v1/auth/') &&
+          path != '/v1/auth/logout' &&
+          path != '/v1/auth/upgrade') {
+        rethrow;
+      }
       if (await _sessions.refresh() == null) rethrow;
       return attempt();
     }

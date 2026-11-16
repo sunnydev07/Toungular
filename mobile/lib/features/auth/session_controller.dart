@@ -24,6 +24,7 @@ class SessionState {
 
   bool get isLoading => status == SessionStatus.loading;
   bool get isSignedIn => status == SessionStatus.signedIn;
+  bool get isGuest => session?.isGuest ?? false;
   bool get requiresOnboarding =>
       isSignedIn && (session?.profile.needsOnboarding ?? true);
 }

@@ -2,7 +2,7 @@ import express, { Router, type Request } from 'express';
 import { z } from 'zod';
 
 import type { AppEnv } from '../config/env.js';
-import type { LoginInput, ProfilePatch, RecallMode, RegisterInput, ReviewGrade } from '../contracts.js';
+import type { LoginInput, ProfilePatch, RecallMode, RegisterInput, ReviewGrade, UpgradeGuestInput } from '../contracts.js';
 import { AppError, asyncRoute } from '../lib/http.js';
 import type { QuotaService } from '../lib/quotas.js';
 import { authenticatedUserId, requireAuth } from '../middleware/auth.js';
@@ -195,6 +195,13 @@ async function measured<T>(quotas: QuotaService, operation: () => Promise<T>): P
 export function createV1Router(dependencies: V1Dependencies): Router {
   const router = Router();
   const authenticate = requireAuth(dependencies.env);
+  // Guests can practise everything, but purchases and referrals belong to a
+  // permanent account the learner can return to on another device.
+  const requireAccount = async (request: Request): Promise<void> => {
+    if (await dependencies.auth.isGuest(authenticatedUserId(request))) {
+      throw new AppError(403, 'GUEST_ACCOUNT', 'Create an account to use Toungular Plus and referrals.');
+    }
+  };
 
   router.post('/auth/register', asyncRoute(async (request, response) => {
     const input = registerSchema.parse(request.body) as RegisterInput;
@@ -213,6 +220,13 @@ export function createV1Router(dependencies: V1Dependencies): Router {
     const input = logoutSchema.parse(request.body ?? {});
     await dependencies.auth.logout(authenticatedUserId(request), input.refreshToken, input.allSessions ?? false);
     response.status(200).json({ data: { revoked: true } });
+  }));
+  router.post('/auth/guest', asyncRoute(async (_request, response) => {
+    response.status(201).json({ data: await dependencies.auth.createGuest() });
+  }));
+  router.post('/auth/upgrade', authenticate, asyncRoute(async (request, response) => {
+    const input = loginSchema.parse(request.body) as UpgradeGuestInput;
+    response.status(200).json({ data: await dependencies.auth.upgradeGuest(authenticatedUserId(request), input) });
   }));
 
   router.get('/me', authenticate, asyncRoute(async (request, response) => {
@@ -415,6 +429,7 @@ export function createV1Router(dependencies: V1Dependencies): Router {
   }));
 
   router.get('/entitlements', authenticate, asyncRoute(async (request, response) => {
+    await requireAccount(request);
     response.status(200).json({ data: await dependencies.monetization.entitlements(authenticatedUserId(request)) });
   }));
   router.get('/placement/questions', authenticate, asyncRoute(async (_request, response) => {
@@ -425,17 +440,21 @@ export function createV1Router(dependencies: V1Dependencies): Router {
     response.status(200).json({ data: await dependencies.placement.submitVocabulary(authenticatedUserId(request), input.answers) });
   }));
   router.post('/billing/verify', authenticate, asyncRoute(async (request, response) => {
+    await requireAccount(request);
     const input = billingReceiptSchema.parse(request.body);
     response.status(200).json({ data: await dependencies.monetization.verify(authenticatedUserId(request), input) });
   }));
   router.post('/billing/restore', authenticate, asyncRoute(async (request, response) => {
+    await requireAccount(request);
     const input = restoreSchema.parse(request.body);
     response.status(200).json({ data: await dependencies.monetization.restore(authenticatedUserId(request), input.receipts) });
   }));
   router.get('/referrals/me', authenticate, asyncRoute(async (request, response) => {
+    await requireAccount(request);
     response.status(200).json({ data: await dependencies.monetization.referral(authenticatedUserId(request)) });
   }));
   router.post('/referrals/redeem', authenticate, asyncRoute(async (request, response) => {
+    await requireAccount(request);
     const input = referralRedeemSchema.parse(request.body);
     response.status(200).json({ data: await dependencies.monetization.redeemReferral(authenticatedUserId(request), input.code) });
   }));

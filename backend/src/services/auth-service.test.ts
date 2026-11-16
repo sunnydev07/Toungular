@@ -16,9 +16,14 @@ type TokenRow = {
   createdAt: Date;
 };
 
-function createHarness() {
-  const user = { id: 'user-1', email: 'learner@toungular.app' };
+function createHarness(options: { guest?: boolean } = {}) {
+  const user = {
+    id: 'user-1',
+    email: options.guest ? 'guest-abc@guest.toungular.app' : 'learner@toungular.app',
+    isGuest: options.guest ?? false,
+  };
   const rows: TokenRow[] = [];
+  const created: Array<Record<string, unknown>> = [];
   let sequence = 0;
 
   const matches = (row: TokenRow, where: Record<string, unknown>): boolean =>
@@ -29,8 +34,24 @@ function createHarness() {
 
   const prisma = {
     user: {
-      findUnique: async () => ({ ...user, passwordHash: 'unused' }),
-      create: async () => user,
+      findUnique: async ({ where }: { where: Record<string, unknown> }) => {
+        if (typeof where.email === 'string' && where.email !== user.email) return null;
+        if (typeof where.id === 'string' && where.id !== user.id) return null;
+        return { ...user, passwordHash: 'unused' };
+      },
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        created.push(data);
+        return {
+          ...user,
+          email: data.email as string,
+          isGuest: data.isGuest === true,
+          passwordHash: data.passwordHash as string,
+        };
+      },
+      update: async ({ data }: { data: Record<string, unknown> }) => {
+        Object.assign(user, data);
+        return { ...user, passwordHash: data.passwordHash as string };
+      },
     },
     refreshToken: {
       findUnique: async ({ where }: { where: { tokenHash: string } }) => {
@@ -70,7 +91,7 @@ function createHarness() {
     }),
   };
 
-  return { service, rows, user };
+  return { service, rows, user, created };
 }
 
 function seedToken(rows: TokenRow[], familyId: string | null = null): string {
@@ -88,6 +109,46 @@ function seedToken(rows: TokenRow[], familyId: string | null = null): string {
 }
 
 const unauthorized = (error: unknown) => error instanceof AppError && error.status === 401;
+
+test('a guest session is created without reusable credentials', async () => {
+  const { service, rows, created } = createHarness();
+
+  const result = await service.createGuest();
+
+  assert.equal(created.length, 1);
+  assert.equal(created[0]!.isGuest, true);
+  assert.match(created[0]!.email as string, /^guest-[\w-]+@guest\.toungular\.app$/);
+  assert.equal(typeof created[0]!.passwordHash, 'string');
+  assert.equal(result.user.isGuest, true);
+  assert.equal(rows.length, 1);
+  assert.ok(result.accessToken);
+  assert.ok(result.refreshToken);
+});
+
+test('upgrading a guest keeps the account and clears the guest flag', async () => {
+  const { service, user } = createHarness({ guest: true });
+
+  const result = await service.upgradeGuest('user-1', {
+    email: 'Learner@Toungular.app',
+    password: 'password123',
+  });
+
+  assert.equal(result.user.id, 'user-1');
+  assert.equal(result.user.email, 'learner@toungular.app');
+  assert.equal(result.user.isGuest, false);
+  assert.equal(user.email, 'learner@toungular.app');
+  assert.equal(user.isGuest, false);
+  assert.equal(typeof (user as { passwordHash?: string }).passwordHash, 'string');
+});
+
+test('a permanent account cannot be upgraded again', async () => {
+  const { service } = createHarness();
+
+  await assert.rejects(
+    service.upgradeGuest('user-1', { email: 'other@toungular.app', password: 'password123' }),
+    (error: unknown) => error instanceof AppError && error.status === 409 && error.code === 'ACCOUNT_ALREADY_REGISTERED',
+  );
+});
 
 test('refresh rotates the token inside the same family', async () => {
   const { service, rows } = createHarness();

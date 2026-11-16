@@ -101,9 +101,12 @@ export function createApp(env: AppEnv = loadEnv()): Express {
 
   const credentialLimiter = authLimiter(10, 15 * 60 * 1000);
   const refreshLimiter = authLimiter(120, 15 * 60 * 1000);
+  // Guests are unauthenticated account creation, so cap them per device/IP.
+  const guestLimiter = authLimiter(60, 60 * 60 * 1000);
   app.use('/v1/auth/login', credentialLimiter);
   app.use('/v1/auth/register', credentialLimiter);
   app.use('/v1/auth/refresh', refreshLimiter);
+  app.use('/v1/auth/guest', guestLimiter);
 
   app.use(express.json({ limit: '1mb' }));
   app.get('/health', (_request, response) => {

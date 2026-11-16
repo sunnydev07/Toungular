@@ -33,6 +33,21 @@ class AuthRepository {
     'password': password,
   });
 
+  /// Starts an account-less session that lives only on this device until the
+  /// learner upgrades it with an email and password.
+  Future<LearnerSession> continueAsGuest() =>
+      _authenticate('/v1/auth/guest', const <String, Object?>{});
+
+  /// Turns the current guest session into a permanent account in place, so the
+  /// progress made without an account is kept.
+  Future<LearnerSession> upgradeGuest({
+    required String email,
+    required String password,
+  }) => _authenticate('/v1/auth/upgrade', <String, Object?>{
+    'email': email.trim(),
+    'password': password,
+  });
+
   /// Revokes the refresh token server-side, then drops the local session.
   /// Local sign-out must succeed even when the API is unreachable.
   Future<void> logout() async {
